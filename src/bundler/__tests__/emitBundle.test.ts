@@ -4,7 +4,7 @@ import { executeModule } from "../../runtime/executeModule";
 
 describe("emitBundle", () => {
 	it("loads dependencies before entry via lazy __require__", () => {
-		const code = emitBundle(
+		const { moduleCode: code } = emitBundle(
 			[
 				{
 					canonicalId: "notes/entry.md#vue-interactive-entry",

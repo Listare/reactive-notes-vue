@@ -14,10 +14,13 @@ export interface CompiledStyle {
 	scoped: boolean;
 }
 
+import type { StackCodeRegion } from "../runtime/stackTrace";
+
 export interface CompileSfcResult {
 	scopeId: string;
 	moduleCode: string;
 	styles: CompiledStyle[];
+	stackRegions: StackCodeRegion[];
 }
 
 export interface CompileSfcError {
@@ -117,7 +120,12 @@ function compileDescriptor(
 
 	const styles = compileStyles(descriptor, scopeId);
 
-	return { scopeId, moduleCode, styles };
+	return {
+		scopeId,
+		moduleCode,
+		styles,
+		stackRegions: [],
+	};
 }
 
 export interface CompileSfcOptions {

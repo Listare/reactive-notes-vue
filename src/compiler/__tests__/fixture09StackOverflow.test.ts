@@ -8,6 +8,7 @@ import { collectImportsFromSfc } from "../../bundler/collectImports";
 import { prepareScriptModule } from "../../bundler/prepareScriptModule";
 import { extractNamedCodeBlock } from "../../markdown/extractNamedCodeBlock";
 import { executeModule } from "../../runtime/executeModule";
+import { rewriteRuntimeStack } from "../../runtime/stackTrace";
 import type { ModuleLoader } from "../../bundler/types";
 
 const FIXTURE_09 = readFileSync(
@@ -47,7 +48,7 @@ describe("fixture 09 stack overflow", () => {
 			compiled.moduleCode,
 			`${sourcePath}.vue-interactive.ts`,
 		);
-		const bundled = await bundleGraph(
+		const { moduleCode: bundledCode, stackRegions } = await bundleGraph(
 			{
 				canonicalId: `${sourcePath}#vue-interactive-entry`,
 				vaultPath: sourcePath,
@@ -61,14 +62,19 @@ describe("fixture 09 stack overflow", () => {
 
 		let thrown: Error | undefined;
 		try {
-			executeModule(bundled.moduleCode);
+			executeModule(bundledCode);
 		} catch (e) {
 			thrown = e instanceof Error ? e : new Error(String(e));
 		}
 
 		expect(thrown).toBeDefined();
-		const msg = `${thrown!.message}\n${thrown!.stack ?? ""}`;
+		const stack =
+			rewriteRuntimeStack(thrown!.stack, stackRegions) ?? thrown!.stack ?? "";
+		const msg = `${thrown!.message}\n${stack}`;
 		expect(msg).toMatch(/stack|Maximum call stack/i);
-		expect(thrown!.stack).toBeTruthy();
+		expect(stack).toMatch(
+			new RegExp(`${sourcePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:recursiveRun:\\d+:\\d+`),
+		);
+		expect(stack).not.toMatch(/<anonymous>:\d+:\d+/);
 	});
 });

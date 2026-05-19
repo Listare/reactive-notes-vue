@@ -7,6 +7,7 @@ import { createVaultModuleLoader } from "../vault/vaultModuleLoader";
 import type { ReactiveNotesVueSettings } from "../settings";
 import { normalizeCustomScriptPath } from "../settings/normalizeCustomScriptPath";
 import { transpileTypeScript } from "../bundler/transpile";
+import { singleModuleStackRegion } from "../runtime/stackTrace";
 
 export interface CompileBlockContext {
 	app: App;
@@ -40,7 +41,13 @@ export async function compileSfcWithImports(
 	);
 
 	if (imports.length === 0) {
-		return { ...compiled, moduleCode };
+		return {
+			...compiled,
+			moduleCode,
+			stackRegions: [
+				singleModuleStackRegion(ctx.sourcePath, entryCanonicalId(ctx.sourcePath)),
+			],
+		};
 	}
 
 	const entryId = entryCanonicalId(ctx.sourcePath);
@@ -60,5 +67,6 @@ export async function compileSfcWithImports(
 		scopeId: compiled.scopeId,
 		moduleCode: bundled.moduleCode,
 		styles: bundled.styles,
+		stackRegions: bundled.stackRegions,
 	};
 }

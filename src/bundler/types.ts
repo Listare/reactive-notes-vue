@@ -9,9 +9,12 @@ export interface BundledModuleRecord {
 	styles: CompiledStyle[];
 }
 
+import type { StackCodeRegion } from "../runtime/stackTrace";
+
 export interface BundleResult {
 	moduleCode: string;
 	styles: CompiledStyle[];
+	stackRegions: StackCodeRegion[];
 }
 
 export interface ModuleLoadRequest {

@@ -1,7 +1,12 @@
 import { buildSandboxSrcdoc } from "./sandboxSrcdoc";
 import { getSandboxRunnerScript } from "./sandboxRunnerBundle";
 import { buildThemeVariablesCss } from "./themeVariables";
-import type { SandboxInbound, SandboxOutbound, SandboxStyleChunk } from "./sandboxProtocol";
+import type {
+	SandboxInbound,
+	SandboxOutbound,
+	SandboxStyleChunk,
+} from "./sandboxProtocol";
+import type { StackCodeRegion } from "./stackTrace";
 
 export class SandboxFrame {
 	private iframe: HTMLIFrameElement | null = null;
@@ -69,6 +74,7 @@ export class SandboxFrame {
 
 	renderInSandbox(options: {
 		moduleCode: string;
+		stackRegions: StackCodeRegion[];
 		styles: SandboxStyleChunk[];
 		scopeId: string;
 		themeDark: boolean;
@@ -79,6 +85,7 @@ export class SandboxFrame {
 
 	private postRender(options: {
 		moduleCode: string;
+		stackRegions: StackCodeRegion[];
 		styles: SandboxStyleChunk[];
 		scopeId: string;
 		themeDark: boolean;
@@ -95,6 +102,7 @@ export class SandboxFrame {
 			type: "vue-sandbox-render",
 			requestId,
 			moduleCode: options.moduleCode,
+			stackRegions: options.stackRegions,
 			styles: options.styles,
 			scopeId: options.scopeId,
 			themeDark: options.themeDark,

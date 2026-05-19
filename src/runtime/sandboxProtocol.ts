@@ -1,3 +1,5 @@
+import type { StackCodeRegion } from "./stackTrace";
+
 export type SandboxStyleChunk = {
 	css: string;
 	scoped: boolean;
@@ -9,6 +11,7 @@ export type SandboxInbound =
 			type: "vue-sandbox-render";
 			requestId: string;
 			moduleCode: string;
+			stackRegions: StackCodeRegion[];
 			styles: SandboxStyleChunk[];
 			scopeId: string;
 			themeDark: boolean;

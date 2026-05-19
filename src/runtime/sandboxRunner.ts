@@ -5,6 +5,7 @@ import { createApp, type App as VueApp, type Component } from "vue";
 import { rewriteScopedCssForMountRoot, scopeDataAttribute } from "../compiler/rewriteScopedCss";
 import { buildThemeVariablesCss } from "./themeVariables";
 import { executeModule } from "./executeModule";
+import { rewriteRuntimeStack } from "./stackTrace";
 import type {
 	SandboxInbound,
 	SandboxOutbound,
@@ -116,7 +117,7 @@ window.addEventListener("message", (event: MessageEvent) => {
 				type: "vue-sandbox-error",
 				requestId: data.requestId,
 				message: err.message,
-				stack: err.stack,
+				stack: rewriteRuntimeStack(err.stack, data.stackRegions) ?? err.stack,
 			});
 		}
 		return;

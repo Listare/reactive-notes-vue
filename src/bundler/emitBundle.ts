@@ -1,6 +1,16 @@
 import type { BundledModuleRecord } from "./types";
 import { rewriteModuleImports } from "./rewriteModuleImports";
 import type { ResolvePathContext } from "../resolver/resolveVaultPath";
+import {
+	blockNameFromCanonicalId,
+	countLines,
+	type StackCodeRegion,
+} from "../runtime/stackTrace";
+
+export interface EmitBundleResult {
+	moduleCode: string;
+	stackRegions: StackCodeRegion[];
+}
 
 /**
  * Wraps modules into one IIFE body for `new Function('__vue__', code)`.
@@ -10,30 +20,41 @@ export function emitBundle(
 	modules: BundledModuleRecord[],
 	entryCanonicalId: string,
 	ctx: ResolvePathContext,
-): string {
+): EmitBundleResult {
 	const moduleMap = new Map(
 		modules.map((m) => [m.canonicalId, m] as const),
 	);
 
-	const parts: string[] = [
-		"const __moduleFactories__ = Object.create(null);",
-		"const __moduleCache__ = Object.create(null);",
-		"function __require__(id) {",
-		"  if (Object.prototype.hasOwnProperty.call(__moduleCache__, id)) {",
-		"    return __moduleCache__[id];",
-		"  }",
-		"  const factory = __moduleFactories__[id];",
-		"  if (!factory) throw new Error('找不到模块: ' + id);",
-		"  const exports = {};",
-		"  __moduleCache__[id] = exports;",
-		"  const raw = factory(__vue__, __require__);",
-		"  const resolved = raw && typeof raw === 'object' && raw !== null && 'default' in raw",
-		"    ? raw",
-		"    : { default: raw };",
-		"  Object.assign(exports, resolved);",
-		"  return exports;",
-		"}",
-	];
+	const parts: string[] = [];
+	const stackRegions: StackCodeRegion[] = [];
+	let currentLine = 1;
+
+	const append = (chunk: string): void => {
+		parts.push(chunk);
+		currentLine += countLines(chunk);
+	};
+
+	append("const __moduleFactories__ = Object.create(null);");
+	append("const __moduleCache__ = Object.create(null);");
+	append(
+		[
+			"function __require__(id) {",
+			"  if (Object.prototype.hasOwnProperty.call(__moduleCache__, id)) {",
+			"    return __moduleCache__[id];",
+			"  }",
+			"  const factory = __moduleFactories__[id];",
+			"  if (!factory) throw new Error('找不到模块: ' + id);",
+			"  const exports = {};",
+			"  __moduleCache__[id] = exports;",
+			"  const raw = factory(__vue__, __require__);",
+			"  const resolved = raw && typeof raw === 'object' && raw !== null && 'default' in raw",
+			"    ? raw",
+			"    : { default: raw };",
+			"  Object.assign(exports, resolved);",
+			"  return exports;",
+			"}",
+		].join("\n"),
+	);
 
 	for (const mod of modules) {
 		const { code } = rewriteModuleImports(
@@ -41,15 +62,25 @@ export function emitBundle(
 			mod.vaultPath,
 			ctx,
 		);
-		parts.push(
+		append(
 			`__moduleFactories__[${JSON.stringify(mod.canonicalId)}] = function(__vue__, __require__) {`,
-			"const __export = (function() {",
-			code,
-			"})();",
-			"return __export && typeof __export === 'object' && __export !== null && 'default' in __export",
-			"  ? __export",
-			"  : { default: __export };",
-			"};",
+		);
+		append("const __export = (function() {");
+		const codeStartLine = currentLine;
+		append(code);
+		stackRegions.push({
+			vaultPath: mod.vaultPath,
+			blockName: blockNameFromCanonicalId(mod.canonicalId),
+			codeStartLine,
+		});
+		append("})();");
+		append(
+			[
+				"return __export && typeof __export === 'object' && __export !== null && 'default' in __export",
+				"  ? __export",
+				"  : { default: __export };",
+				"};",
+			].join("\n"),
 		);
 	}
 
@@ -57,9 +88,9 @@ export function emitBundle(
 		throw new Error(`入口模块未注册: ${entryCanonicalId}`);
 	}
 
-	parts.push(
+	append(
 		`return __require__(${JSON.stringify(entryCanonicalId)}).default;`,
 	);
 
-	return parts.join("\n");
+	return { moduleCode: parts.join("\n"), stackRegions };
 }

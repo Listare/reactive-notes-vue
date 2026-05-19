@@ -130,6 +130,10 @@ export async function bundleGraph(
 		throw new BundleError(msg);
 	}
 
-	const moduleCode = emitBundle([...records.values()], entry.canonicalId, ctx);
-	return { moduleCode, styles: allStyles };
+	const { moduleCode, stackRegions } = emitBundle(
+		[...records.values()],
+		entry.canonicalId,
+		ctx,
+	);
+	return { moduleCode, styles: allStyles, stackRegions };
 }

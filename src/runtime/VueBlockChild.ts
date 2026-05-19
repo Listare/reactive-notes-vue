@@ -37,6 +37,7 @@ export class VueBlockChild extends MarkdownRenderChild {
 			await sandbox.init();
 			await sandbox.renderInSandbox({
 				moduleCode: compiled.moduleCode,
+				stackRegions: compiled.stackRegions,
 				styles: compiled.styles,
 				scopeId: compiled.scopeId,
 				themeDark: document.body.classList.contains("theme-dark"),
