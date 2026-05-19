@@ -3,8 +3,13 @@
 	max-width: 100%;
 }
 
-.vue-interactive-mount {
+.vue-interactive-sandbox-host {
 	width: 100%;
+}
+
+.vue-interactive-sandbox {
+	width: 100%;
+	min-height: 1rem;
 }
 
 .vue-interactive-error {

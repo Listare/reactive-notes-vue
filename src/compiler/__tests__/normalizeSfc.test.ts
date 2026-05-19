@@ -36,4 +36,11 @@ describe("normalizeSfc", () => {
 			normalizeSfc("<template><p></p></template>"),
 		).toThrow(SfcNormalizeError);
 	});
+
+	it("pads empty script setup so compiler-sfc recognizes the block", () => {
+		const sfc = `<template><p></p></template>
+<script setup lang="ts">
+</script>`;
+		expect(normalizeSfc(sfc)).toContain("// __vue_interactive__");
+	});
 });

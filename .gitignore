@@ -8,15 +8,20 @@
 # npm
 node_modules
 
-# Don't include the compiled main.js file in the repo.
-# They should be uploaded to GitHub releases instead.
+# Don't include compiled bundles in the repo (upload via GitHub releases).
 main.js
+sandbox-runner.js
 
 # Exclude sourcemaps
 *.map
 
 # obsidian
 data.json
+test-vault/.obsidian/plugins/reactive-notes-vue/main.js
+test-vault/.obsidian/plugins/reactive-notes-vue/manifest.json
+test-vault/.obsidian/plugins/reactive-notes-vue/styles.css
+test-vault/.obsidian/workspace.json
+test-vault/.obsidian/workspace-mobile.json
 
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store

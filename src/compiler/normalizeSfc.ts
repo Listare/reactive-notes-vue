@@ -1,5 +1,15 @@
 const SCRIPT_SETUP_RE = /<script\s+([^>]*setup[^>]*)>/i;
+const EMPTY_SCRIPT_SETUP_RE =
+	/(<script\s+[^>]*setup[^>]*>)\s*(<\/script>)/gi;
 const TEMPLATE_RE = /<template[\s>]/i;
+
+/** Vue compiler-sfc ignores wholly empty script setup blocks; keep a no-op line. */
+function padEmptyScriptSetup(source: string): string {
+	return source.replace(
+		EMPTY_SCRIPT_SETUP_RE,
+		"$1\n// __vue_interactive__\n$2",
+	);
+}
 
 export class SfcNormalizeError extends Error {
 	constructor(message: string) {
@@ -23,11 +33,12 @@ export function normalizeSfc(source: string): string {
 		throw new SfcNormalizeError("缺少 <script setup> 块。");
 	}
 
-	return trimmed.replace(SCRIPT_SETUP_RE, (_match, attrs: string) => {
+	const withLang = trimmed.replace(SCRIPT_SETUP_RE, (_match, attrs: string) => {
 		if (/\blang\s*=/i.test(attrs)) {
 			return `<script ${attrs}>`;
 		}
 		const setupAttrs = attrs.trim();
 		return `<script ${setupAttrs} lang="ts">`;
 	});
+	return padEmptyScriptSetup(withLang);
 }
