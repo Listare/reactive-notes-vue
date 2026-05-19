@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { emitBundle } from "../emitBundle";
 import { executeModule } from "../../runtime/executeModule";
+import type { ObsidianSandboxModule } from "../../runtime/obsidian/proxyClient";
+
+const EMPTY_OBSIDIAN: ObsidianSandboxModule = { default: {} };
 
 describe("emitBundle", () => {
 	it("loads dependencies before entry via lazy __require__", async () => {
@@ -28,6 +31,6 @@ return { setup() { return () => null } }
 			{ fromPath: "notes/entry.md", customScriptPath: "" },
 		);
 
-		await expect(executeModule(code)).resolves.toBeDefined();
+		await expect(executeModule(code, EMPTY_OBSIDIAN)).resolves.toBeDefined();
 	});
 });

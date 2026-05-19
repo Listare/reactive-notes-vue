@@ -1,3 +1,5 @@
+import type { App } from "obsidian";
+import { ObsidianBridgeSession } from "./obsidian/ObsidianBridgeSession";
 import { buildSandboxSrcdoc } from "./sandboxSrcdoc";
 import { getSandboxRunnerScript } from "./sandboxRunnerBundle";
 import { buildThemeVariablesCss } from "./themeVariables";
@@ -13,8 +15,13 @@ export class SandboxFrame {
 	private readyPromise: Promise<void> | null = null;
 	private messageHandler: ((event: MessageEvent) => void) | null = null;
 	private requestCounter = 0;
+	private obsidianBridge: ObsidianBridgeSession | null = null;
+	private obsidianPortTransferred = false;
 
-	constructor(private readonly container: HTMLElement) {}
+	constructor(
+		private readonly container: HTMLElement,
+		private readonly app: App,
+	) {}
 
 	async init(): Promise<void> {
 		if (this.readyPromise) {
@@ -36,6 +43,8 @@ export class SandboxFrame {
 
 		this.iframe = iframe;
 		this.container.appendChild(iframe);
+
+		this.obsidianBridge = new ObsidianBridgeSession(this.app);
 
 		this.readyPromise = new Promise((resolve, reject) => {
 			const timeout = window.setTimeout(() => {
@@ -145,7 +154,12 @@ export class SandboxFrame {
 			};
 
 			window.addEventListener("message", onMessage);
-			targetWindow.postMessage(message, "*");
+			const transfer: MessagePort[] = [];
+			if (this.obsidianBridge && !this.obsidianPortTransferred) {
+				transfer.push(this.obsidianBridge.transferPort);
+				this.obsidianPortTransferred = true;
+			}
+			targetWindow.postMessage(message, "*", transfer);
 		});
 	}
 
@@ -163,6 +177,9 @@ export class SandboxFrame {
 			this.messageHandler = null;
 		}
 		iframe?.remove();
+		this.obsidianBridge?.dispose();
+		this.obsidianBridge = null;
+		this.obsidianPortTransferred = false;
 		this.iframe = null;
 		this.readyPromise = null;
 	}

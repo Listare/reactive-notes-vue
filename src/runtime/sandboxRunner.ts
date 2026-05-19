@@ -4,6 +4,7 @@
 import { createApp, type App as VueApp, type Component } from "vue";
 import { rewriteScopedCssForMountRoot, scopeDataAttribute } from "../compiler/rewriteScopedCss";
 import { buildThemeVariablesCss } from "./themeVariables";
+import { createObsidianSandboxModule } from "./obsidian/proxyClient";
 import { executeModule } from "./executeModule";
 import { rewriteRuntimeStack } from "./stackTrace";
 import type {
@@ -15,6 +16,7 @@ import type {
 let vueApp: VueApp | null = null;
 const styleEls: HTMLStyleElement[] = [];
 let resizeObserver: ResizeObserver | null = null;
+let obsidianPort: MessagePort | null = null;
 function post(message: SandboxOutbound): void {
 	parent.postMessage(message, "*");
 }
@@ -95,7 +97,11 @@ async function handleRender(
 	applyTheme(msg.themeDark);
 	injectThemeVariables(msg.themeCss);
 	injectStyles(msg.styles, msg.scopeId);
-	const component: Component = await executeModule(msg.moduleCode);
+	if (!obsidianPort) {
+		throw new Error("Obsidian API 桥接未就绪。");
+	}
+	const obsidian = createObsidianSandboxModule(obsidianPort);
+	const component: Component = await executeModule(msg.moduleCode, obsidian);
 	const mountEl = ensureMountElement();
 	applyScopeRoot(mountEl, msg.scopeId);
 	vueApp = createApp(component);
@@ -105,6 +111,12 @@ async function handleRender(
 }
 
 window.addEventListener("message", (event: MessageEvent) => {
+	if (event.ports[0]) {
+		obsidianPort?.close();
+		obsidianPort = event.ports[0];
+		obsidianPort.start();
+	}
+
 	const data = event.data as SandboxInbound;
 	if (!data || typeof data !== "object" || !("type" in data)) {
 		return;

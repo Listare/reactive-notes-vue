@@ -73,7 +73,7 @@ export class VueBlockChild extends MarkdownRenderChild {
 				settings: this.plugin.settings,
 				sourcePath: this.sourcePath,
 			});
-			const sandbox = new SandboxFrame(host);
+			const sandbox = new SandboxFrame(host, this.plugin.app);
 			this.sandbox = sandbox;
 			await sandbox.init();
 			await sandbox.renderInSandbox({

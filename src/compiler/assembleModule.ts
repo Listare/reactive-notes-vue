@@ -1,4 +1,4 @@
-import { rewriteVueImportsInCode } from "./rewriteImports";
+import { rewriteBuiltinImportsInCode } from "./rewriteImports";
 
 export interface AssembleInput {
 	scriptContent: string;
@@ -18,7 +18,7 @@ function rewriteTemplateCode(templateCode: string): string {
 }
 
 function rewriteScriptForAssembly(scriptContent: string): string {
-	let code = rewriteVueImportsInCode(scriptContent);
+	let code = rewriteBuiltinImportsInCode(scriptContent);
 	code = code.replace(/export\s+default\s+/, "const __sfc_main = ");
 	return code.trim();
 }
@@ -30,7 +30,7 @@ export function assembleModule(input: AssembleInput): string {
 	const { scriptContent, templateCode } = input;
 
 	if (!templateCode) {
-		let code = rewriteVueImportsInCode(scriptContent);
+		let code = rewriteBuiltinImportsInCode(scriptContent);
 		code = code.replace(/export\s+default\s+/, "return ");
 		return code.trim();
 	}

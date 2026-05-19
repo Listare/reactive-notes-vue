@@ -1,4 +1,6 @@
-/** Static import sources in JS/TS (excludes `from 'vue'`). */
+import { isObsidianBuiltinSpecifier } from "../builtin/isObsidianBuiltin";
+
+/** Static import sources in JS/TS (excludes built-in `vue` / `@obsidian`). */
 const STATIC_IMPORT_RE =
 	/^\s*import\s+(?:type\s+)?(?:[\w*\s{},]*\s+from\s+)?['"]([^'"]+)['"]\s*;?\s*$/gm;
 
@@ -11,7 +13,7 @@ export function collectImportsFromCode(code: string): string[] {
 	STATIC_IMPORT_RE.lastIndex = 0;
 	while ((match = STATIC_IMPORT_RE.exec(code)) !== null) {
 		const spec = match[1];
-		if (spec && spec !== "vue") {
+		if (spec && spec !== "vue" && !isObsidianBuiltinSpecifier(spec)) {
 			specs.add(spec);
 		}
 	}

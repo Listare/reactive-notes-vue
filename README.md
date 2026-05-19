@@ -55,7 +55,22 @@ button {
 
 - 必须包含 `<template>` 与 `<script setup>`；若未写 `lang`，会自动补上 `lang="ts"`。
 - 围栏可选属性（写在语言标识后）：`{name=名称}` 供 `?block=` 导入；`{hide=true}` 时阅读模式不渲染（仅作模块导出）。可组合，例如 ` ```vue-interactive {name=Chip, hide=true}`。
-- 支持从库内文件或 HTTPS URL 导入（见下方）；`vue` 由插件内置，其余 npm 包可通过 ESM CDN URL 引入。
+- 支持从库内文件或 HTTPS URL 导入（见下方）；`vue` 与 Obsidian API（`@obsidian`）由插件内置，其余 npm 包可通过 ESM CDN URL 引入。
+
+### Obsidian API（`@obsidian`）
+
+在 `<script setup>` 中可像原生插件一样使用 Obsidian API，接口与 `obsidian` 包一致：
+
+```ts
+import app from "@obsidian";
+import { Notice } from "@obsidian";
+
+new Notice(`当前文件：${app.workspace.getActiveFile()?.path ?? "无"}`);
+```
+
+- `import app from '@obsidian'`：`default` 为当前库的 `App` 实例（`app.vault`、`app.workspace` 等）。
+- `import { Notice, Modal, … } from '@obsidian'`：与 `import { … } from 'obsidian'` 相同。
+- 亦支持 `import * as Obs from '@obsidian'`（`Obs.default` 为 `app`）。
 
 ### 文件导入
 

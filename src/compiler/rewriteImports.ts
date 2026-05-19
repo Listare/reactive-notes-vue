@@ -1,3 +1,5 @@
+import { rewriteObsidianImportsInCode } from "./rewriteObsidianImports";
+
 export const VUE_IMPORT_RE =
 	/import\s*{\s*([^}]+)\s*}\s*from\s*['"]vue['"];?\s*/g;
 
@@ -22,9 +24,14 @@ export function rewriteVueImportsInCode(code: string): string {
 	});
 }
 
-/** Converts vue imports and `export default` into `return` for single-expression modules. */
+/** Rewrites built-in `vue` and `@obsidian` imports for sandbox execution. */
+export function rewriteBuiltinImportsInCode(code: string): string {
+	return rewriteObsidianImportsInCode(rewriteVueImportsInCode(code));
+}
+
+/** Converts built-in imports and `export default` into `return` for single-expression modules. */
 export function prepareModuleCode(compiled: string): string {
-	let code = rewriteVueImportsInCode(compiled);
+	let code = rewriteBuiltinImportsInCode(compiled);
 	code = code.replace(/export\s+default\s+/, "return ");
 	return code.trim();
 }

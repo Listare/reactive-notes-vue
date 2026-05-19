@@ -3,7 +3,12 @@ import {
 	resolveModuleCanonicalId,
 } from "../resolver/isUrlImport";
 import type { ResolvePathContext } from "../resolver/resolveVaultPath";
-import { rewriteVueImportsInCode, VUE_IMPORT_RE } from "../compiler/rewriteImports";
+import { isObsidianBuiltinSpecifier } from "../builtin/isObsidianBuiltin";
+import {
+	rewriteBuiltinImportsInCode,
+	VUE_IMPORT_RE,
+} from "../compiler/rewriteImports";
+import { OBSIDIAN_SIDE_EFFECT_IMPORT_RE } from "../compiler/rewriteObsidianImports";
 
 function toCanonicalId(
 	specifier: string,
@@ -58,7 +63,11 @@ function rewriteUrlNamedBindings(named: string, modVar: string): string {
 		.join("\n");
 }
 
-/** Rewrites `vue` and vault imports to `__vue__` / `__require__(id)`. */
+function isBuiltinSpecifier(spec: string): boolean {
+	return spec === "vue" || isObsidianBuiltinSpecifier(spec);
+}
+
+/** Rewrites `vue` / `@obsidian` and vault imports to sandbox helpers. */
 export function rewriteModuleImports(
 	code: string,
 	fromVaultPath: string,
@@ -66,14 +75,14 @@ export function rewriteModuleImports(
 ): { code: string; dependencyIds: string[] } {
 	const dependencyIds: string[] = [];
 	const addDep = (spec: string) => {
-		if (spec === "vue") return;
+		if (isBuiltinSpecifier(spec)) return;
 		dependencyIds.push(toCanonicalId(spec, fromVaultPath, ctx));
 	};
 
-	let out = rewriteVueImportsInCode(code);
+	let out = rewriteBuiltinImportsInCode(code);
 
 	out = out.replace(SIDE_EFFECT_IMPORT_RE, (_full, spec: string) => {
-		if (spec === "vue") return "";
+		if (isBuiltinSpecifier(spec)) return "";
 		addDep(spec);
 		return `${requireExpr(spec, fromVaultPath, ctx)};\n`;
 	});
@@ -91,7 +100,7 @@ export function rewriteModuleImports(
 			defaultOnly: string | undefined,
 			spec: string,
 		) => {
-			if (spec === "vue") {
+			if (isBuiltinSpecifier(spec)) {
 				return _full;
 			}
 			addDep(spec);
@@ -121,8 +130,9 @@ export function rewriteModuleImports(
 		},
 	);
 
-	// Remove any remaining vue import lines missed by rewriteVueImportsInCode
+	// Remove any remaining built-in import lines missed by rewriteBuiltinImportsInCode
 	out = out.replace(VUE_IMPORT_RE, "");
+	out = out.replace(OBSIDIAN_SIDE_EFFECT_IMPORT_RE, "");
 
 	out = out.replace(/export\s+default\s+/g, "return ");
 

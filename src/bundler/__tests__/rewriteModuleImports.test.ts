@@ -16,6 +16,17 @@ describe("rewriteModuleImports", () => {
 		expect(code).not.toMatch(/import\s+.*from/);
 	});
 
+	it("leaves @obsidian imports to __obsidian__", () => {
+		const { code } = rewriteModuleImports(
+			`import app from '@obsidian'\nimport { Notice } from '@obsidian'\nreturn {}`,
+			"notes/demo.md",
+			ctx,
+		);
+		expect(code).toContain("const app = __obsidian__.default");
+		expect(code).toContain("const { Notice } = __obsidian__");
+		expect(code).not.toMatch(/import\s+.*from/);
+	});
+
 	it("rewrites vault imports to __require__", () => {
 		const { code } = rewriteModuleImports(
 			`import x from './lib.js'\nreturn {}`,

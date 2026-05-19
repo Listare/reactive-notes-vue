@@ -24,6 +24,7 @@
 | [[08 - 自引用]] | 本笔记块互引、循环依赖 |
 | [[09 - 错误-递归过深]] | 栈溢出错误面板 |
 | [[10 - CDN导入]] | `https://` ESM CDN（esm.sh，需联网） |
+| [[11 - Obsidian API]] | 内置 `@obsidian`（`app.vault`、`Notice`） |
 
 ## 插件文件
 
