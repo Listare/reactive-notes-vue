@@ -2,7 +2,11 @@ import { App, TFile, TFolder } from "obsidian";
 import { normalizeVaultPath } from "../utils/posixPath";
 import { compileSfc } from "../compiler/compileSfc";
 import { collectImportsFromCode, collectImportsFromSfc } from "../bundler/collectImports";
-import { prepareScriptModule } from "../bundler/prepareScriptModule";
+import {
+	prepareScriptModule,
+	toTranspilePath,
+} from "../bundler/prepareScriptModule";
+import { transpileTypeScript } from "../bundler/transpile";
 import type {
 	LoadedModuleSource,
 	ModuleLoadRequest,
@@ -10,6 +14,7 @@ import type {
 } from "../bundler/types";
 import { extractNamedCodeBlock } from "../markdown/extractNamedCodeBlock";
 import { isJsLikeLanguage } from "../markdown/isJsLikeLanguage";
+import { isVueSfcLanguage } from "../markdown/isVueSfcLanguage";
 import { parseImportSpecifier } from "../resolver/parseImportSpecifier";
 import {
 	resolveVaultPath,
@@ -98,9 +103,26 @@ export function createVaultModuleLoader(
 				);
 			}
 			if (isJsLikeLanguage(extracted.lang)) {
+				const virtualPath = `${vaultPath}?block=${block}`;
+				if (isVueSfcLanguage(extracted.lang)) {
+					const compiled = compileSfc(extracted.content, {
+						bundleImports: false,
+					});
+					let code = compiled.moduleCode.includes("return ")
+						? compiled.moduleCode
+						: `return ${compiled.moduleCode}`;
+					code = transpileTypeScript(code, toTranspilePath(virtualPath));
+					return {
+						canonicalId: id,
+						vaultPath,
+						code,
+						styles: compiled.styles,
+						dependencies: collectImportsFromSfc(extracted.content),
+					};
+				}
 				const code = prepareScriptModule(
 					extracted.content,
-					`${vaultPath}?block=${block}`,
+					virtualPath,
 				);
 				return {
 					canonicalId: id,

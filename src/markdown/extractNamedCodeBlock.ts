@@ -1,17 +1,42 @@
 const FENCE_RE = /^```([^\s`]+)([^\n]*)\r?\n([\s\S]*?)^```/gm;
-const NAME_ATTR_RE = /\{name=([^}]+)\}/;
+const BRACE_ATTRS_RE = /\{([^}]+)\}/;
 
 export interface ExtractedCodeBlock {
 	lang: string;
 	content: string;
 }
 
-export function parseFenceInfo(info: string): { lang: string; name?: string } {
+export interface ParsedFenceInfo {
+	lang: string;
+	name?: string;
+	/** When true, the block is not rendered in reading mode (import-only). */
+	hide?: boolean;
+}
+
+function parseBraceAttributes(info: string): Record<string, string> {
+	const attrs: Record<string, string> = {};
+	const match = BRACE_ATTRS_RE.exec(info);
+	if (!match?.[1]) return attrs;
+	for (const part of match[1].split(",")) {
+		const eq = part.indexOf("=");
+		if (eq === -1) continue;
+		const key = part.slice(0, eq).trim().toLowerCase();
+		const value = part.slice(eq + 1).trim();
+		if (key) attrs[key] = value;
+	}
+	return attrs;
+}
+
+export function parseFenceInfo(info: string): ParsedFenceInfo {
 	const trimmed = info.trim();
-	const nameMatch = NAME_ATTR_RE.exec(trimmed);
-	const name = nameMatch?.[1]?.trim();
-	const lang = trimmed.replace(NAME_ATTR_RE, "").trim().split(/\s+/)[0] ?? "";
-	return name ? { lang, name } : { lang };
+	const attrs = parseBraceAttributes(trimmed);
+	const lang =
+		trimmed.replace(BRACE_ATTRS_RE, "").trim().split(/\s+/)[0] ?? "";
+	const parsed: ParsedFenceInfo = { lang };
+	const name = attrs.name;
+	if (name) parsed.name = name;
+	if (attrs.hide?.toLowerCase() === "true") parsed.hide = true;
+	return parsed;
 }
 
 /** Lists all named fenced code blocks in markdown (`lang {name=…}`). */

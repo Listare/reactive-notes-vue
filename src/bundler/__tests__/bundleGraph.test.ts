@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bundleGraph } from "../bundleGraph";
+import { executeModule } from "../../runtime/executeModule";
 import type { ModuleLoader } from "../types";
 
 describe("bundleGraph", () => {
@@ -69,5 +70,59 @@ return { setup() { return () => null } }
 				loader,
 			),
 		).resolves.toBeDefined();
+	});
+
+	it("allows circular dependencies between modules", async () => {
+		const loader: ModuleLoader = {
+			fileExists: async () => true,
+			loadModule: async ({ specifier }) => {
+				if (specifier === "./a.js") {
+					return {
+						canonicalId: "notes/a.js",
+						vaultPath: "notes/a.js",
+						code: `
+import b from './b.js'
+export default function getA(skip = true) {
+  return 'A' + (skip ? '' : b(false))
+}
+`.trim(),
+						styles: [],
+						dependencies: ["./b.js"],
+					};
+				}
+				if (specifier === "./b.js") {
+					return {
+						canonicalId: "notes/b.js",
+						vaultPath: "notes/b.js",
+						code: `
+import a from './a.js'
+export default function getB(skip = true) {
+  return 'B' + (skip ? '' : a(false))
+}
+`.trim(),
+						styles: [],
+						dependencies: ["./a.js"],
+					};
+				}
+				throw new Error(`unexpected ${specifier}`);
+			},
+		};
+
+		const result = await bundleGraph(
+			{
+				canonicalId: "notes/entry.md#vue-interactive-entry",
+				vaultPath: "notes/entry.md",
+				code: `
+import getA from './a.js'
+import getB from './b.js'
+return { setup() { return () => null } }
+`.trim(),
+				styles: [],
+			},
+			{ fromPath: "notes/entry.md", customScriptPath: "" },
+			loader,
+		);
+
+		expect(() => executeModule(result.moduleCode)).not.toThrow();
 	});
 });

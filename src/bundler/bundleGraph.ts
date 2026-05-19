@@ -96,7 +96,7 @@ export async function bundleGraph(
 		if (records.has(id)) continue;
 
 		if (visiting.has(id)) {
-			throw new BundleError(`检测到循环依赖: ${id}`);
+			continue;
 		}
 		visiting.add(id);
 

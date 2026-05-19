@@ -54,6 +54,7 @@ button {
 ````
 
 - 必须包含 `<template>` 与 `<script setup>`；若未写 `lang`，会自动补上 `lang="ts"`。
+- 围栏可选属性（写在语言标识后）：`{name=名称}` 供 `?block=` 导入；`{hide=true}` 时阅读模式不渲染（仅作模块导出）。可组合，例如 ` ```vue-interactive {name=Chip, hide=true}`。
 - 支持从库内文件导入（见下方）；`vue` 仍为唯一外部 npm 包。
 
 ### 文件导入

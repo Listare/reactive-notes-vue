@@ -34,15 +34,14 @@ export async function compileSfcWithImports(
 
 	const compiled = compileSfc(rawSource, { bundleImports: false });
 	const imports = collectImportsFromSfc(rawSource);
-
-	if (imports.length === 0) {
-		return compiled;
-	}
-
 	const moduleCode = transpileTypeScript(
 		compiled.moduleCode,
 		`${ctx.sourcePath}.vue-interactive.ts`,
 	);
+
+	if (imports.length === 0) {
+		return { ...compiled, moduleCode };
+	}
 
 	const entryId = entryCanonicalId(ctx.sourcePath);
 	const bundled = await bundleGraph(
