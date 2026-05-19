@@ -55,7 +55,7 @@ button {
 
 - 必须包含 `<template>` 与 `<script setup>`；若未写 `lang`，会自动补上 `lang="ts"`。
 - 围栏可选属性（写在语言标识后）：`{name=名称}` 供 `?block=` 导入；`{hide=true}` 时阅读模式不渲染（仅作模块导出）。可组合，例如 ` ```vue-interactive {name=Chip, hide=true}`。
-- 支持从库内文件或 HTTPS URL 导入（见下方）；`vue`、Obsidian API（`@obsidian`）与主题（`@vue-interactive/theme`）由插件内置，其余 npm 包可通过 ESM CDN URL 引入。
+- 支持从库内文件或 HTTPS URL 导入（见下方）；`vue`、Obsidian API（`@obsidian`）、主题（`@vue-interactive/theme`）与 MathJax（`@vue-interactive/math`）由插件内置，其余 npm 包可通过 ESM CDN URL 引入。
 
 ### Obsidian API（`@obsidian`）
 
@@ -127,6 +127,34 @@ const theme = computed(() => getTheme());
 - **亮色** / **暗色**：强制固定
 
 手测用例见 test-vault 中的 [[12 - 主题与 Tailwind]]。
+
+### MathJax：`Latex` 组件
+
+从内置模块导入 **`Latex`**，绑定 `latex` 字符串即可渲染（MathJax 3，沙盒内打包，无需联网）：
+
+```ts
+import { Latex } from "@vue-interactive/math";
+```
+
+```vue
+<template>
+  <p>行内：<Latex :latex="formula" /></p>
+  <Latex :latex="integral" display />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import { Latex } from "@vue-interactive/math";
+
+const formula = ref(String.raw`e^{i\pi} + 1 = 0`);
+const integral = ref(String.raw`\int_0^1 x^2\, dx`);
+</script>
+```
+
+- `latex`：TeX/LaTeX 源字符串（不含 `$` 定界符）
+- `display`：为 `true` 时按块级公式居中显示
+
+手测用例见 test-vault 中的 [[14 - MathJax]]。
 
 ## 架构
 

@@ -44,6 +44,14 @@ export function resolveVaultPath(
 			'内置模块 "@vue-interactive/theme" 不应走文件解析。',
 		);
 	}
+	if (
+		rawPath === "@vue-interactive/math" ||
+		rawPath === "vue-interactive/math"
+	) {
+		throw new ImportPathError(
+			'内置模块 "@vue-interactive/math" 不应走文件解析。',
+		);
+	}
 
 	let resolved: string;
 

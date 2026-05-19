@@ -1,7 +1,8 @@
 import { isGetThemeBuiltinSpecifier } from "../builtin/isGetThemeBuiltin";
+import { isMathBuiltinSpecifier } from "../builtin/isMathBuiltin";
 import { isObsidianBuiltinSpecifier } from "../builtin/isObsidianBuiltin";
 
-/** Static import sources in JS/TS (excludes built-in `vue` / `@obsidian` / theme). */
+/** Static import sources in JS/TS (excludes built-in modules). */
 const STATIC_IMPORT_RE =
 	/^\s*import\s+(?:type\s+)?(?:[\w*\s{},]*\s+from\s+)?['"]([^'"]+)['"]\s*;?\s*$/gm;
 
@@ -18,7 +19,8 @@ export function collectImportsFromCode(code: string): string[] {
 			spec &&
 			spec !== "vue" &&
 			!isObsidianBuiltinSpecifier(spec) &&
-			!isGetThemeBuiltinSpecifier(spec)
+			!isGetThemeBuiltinSpecifier(spec) &&
+			!isMathBuiltinSpecifier(spec)
 		) {
 			specs.add(spec);
 		}

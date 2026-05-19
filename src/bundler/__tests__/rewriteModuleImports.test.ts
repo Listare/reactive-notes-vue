@@ -26,6 +26,16 @@ describe("rewriteModuleImports", () => {
 		expect(code).not.toMatch(/import\s+.*from/);
 	});
 
+	it("leaves @vue-interactive/math imports to __math__", () => {
+		const { code } = rewriteModuleImports(
+			`import { Latex } from '@vue-interactive/math'\nreturn {}`,
+			"notes/demo.md",
+			ctx,
+		);
+		expect(code).toContain("const { Latex } = __math__");
+		expect(code).not.toMatch(/import\s+.*from/);
+	});
+
 	it("leaves @obsidian imports to __obsidian__", () => {
 		const { code } = rewriteModuleImports(
 			`import app from '@obsidian'\nimport { Notice } from '@obsidian'\nreturn {}`,

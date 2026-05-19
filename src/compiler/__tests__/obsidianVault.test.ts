@@ -71,7 +71,7 @@ describe("test-vault/11 - Obsidian API", () => {
 		);
 		expect(moduleCode).toContain("__obsidian__");
 		expect(moduleCode).toContain(
-			"function(__vue__, __require__, __importUrl__, __obsidian__, __getTheme__)",
+			"function(__vue__, __require__, __importUrl__, __obsidian__, __getTheme__, __math__)",
 		);
 	});
 

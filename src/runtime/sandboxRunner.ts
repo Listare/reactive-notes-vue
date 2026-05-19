@@ -6,6 +6,7 @@ import { rewriteScopedCssForMountRoot, scopeDataAttribute } from "../compiler/re
 import { applyThemeToElement } from "../theme/applyVueInteractiveTheme";
 import type { VueInteractiveTheme } from "../theme/getTheme";
 import { createGetThemeSandboxModule } from "./getThemeSandboxModule";
+import { createMathSandboxModule } from "./mathSandboxModule";
 import { createObsidianSandboxModule } from "./obsidian/proxyClient";
 import { executeModule } from "./executeModule";
 import { rewriteRuntimeStack } from "./stackTrace";
@@ -139,6 +140,7 @@ async function handleRender(
 		msg.moduleCode,
 		obsidian,
 		createGetThemeSandboxModule(getTheme),
+		createMathSandboxModule(),
 	);
 	const mountEl = ensureMountElement();
 	applyScopeRoot(mountEl, msg.scopeId);

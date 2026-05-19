@@ -1,5 +1,21 @@
 @import "tailwindcss";
 
+.vue-interactive-latex {
+	display: inline-block;
+	vertical-align: middle;
+}
+
+.vue-interactive-latex--display {
+	display: block;
+	margin: 0.75rem 0;
+	text-align: center;
+}
+
+.vue-interactive-latex svg {
+	max-width: 100%;
+	height: auto;
+}
+
 /* Tailwind `dark:` — same as ReactiveNotes: `.dark` on the block root. */
 @custom-variant dark (&:where(.dark, .dark *));
 

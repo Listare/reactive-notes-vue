@@ -4,6 +4,7 @@ import {
 } from "../resolver/isUrlImport";
 import type { ResolvePathContext } from "../resolver/resolveVaultPath";
 import { isGetThemeBuiltinSpecifier } from "../builtin/isGetThemeBuiltin";
+import { isMathBuiltinSpecifier } from "../builtin/isMathBuiltin";
 import { isObsidianBuiltinSpecifier } from "../builtin/isObsidianBuiltin";
 import {
 	rewriteBuiltinImportsInCode,
@@ -68,11 +69,12 @@ function isBuiltinSpecifier(spec: string): boolean {
 	return (
 		spec === "vue" ||
 		isObsidianBuiltinSpecifier(spec) ||
-		isGetThemeBuiltinSpecifier(spec)
+		isGetThemeBuiltinSpecifier(spec) ||
+		isMathBuiltinSpecifier(spec)
 	);
 }
 
-/** Rewrites `vue` / `@obsidian` / `@vue-interactive/theme` and vault imports to sandbox helpers. */
+/** Rewrites built-in modules and vault imports to sandbox helpers. */
 export function rewriteModuleImports(
 	code: string,
 	fromVaultPath: string,

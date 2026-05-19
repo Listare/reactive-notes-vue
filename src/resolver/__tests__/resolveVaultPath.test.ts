@@ -36,6 +36,12 @@ describe("resolveVaultPath", () => {
 		).toThrow(ImportPathError);
 	});
 
+	it("errors for built-in @vue-interactive/math", () => {
+		expect(() =>
+			resolveVaultPath("@vue-interactive/math", ctx),
+		).toThrow(ImportPathError);
+	});
+
 	it("errors when @custom-script without configured root", () => {
 		expect(() =>
 			resolveVaultPath("@custom-script/a.ts", {
