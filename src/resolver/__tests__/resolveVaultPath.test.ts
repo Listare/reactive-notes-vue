@@ -30,6 +30,12 @@ describe("resolveVaultPath", () => {
 		);
 	});
 
+	it("errors for built-in @vue-interactive/theme", () => {
+		expect(() =>
+			resolveVaultPath("@vue-interactive/theme", ctx),
+		).toThrow(ImportPathError);
+	});
+
 	it("errors when @custom-script without configured root", () => {
 		expect(() =>
 			resolveVaultPath("@custom-script/a.ts", {

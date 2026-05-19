@@ -5,6 +5,7 @@ import { createApp, ref, type App as VueApp, type Component, type Ref } from "vu
 import { rewriteScopedCssForMountRoot, scopeDataAttribute } from "../compiler/rewriteScopedCss";
 import { applyThemeToElement } from "../theme/applyVueInteractiveTheme";
 import type { VueInteractiveTheme } from "../theme/getTheme";
+import { createGetThemeSandboxModule } from "./getThemeSandboxModule";
 import { createObsidianSandboxModule } from "./obsidian/proxyClient";
 import { executeModule } from "./executeModule";
 import { rewriteRuntimeStack } from "./stackTrace";
@@ -137,7 +138,7 @@ async function handleRender(
 	const component: Component = await executeModule(
 		msg.moduleCode,
 		obsidian,
-		getTheme,
+		createGetThemeSandboxModule(getTheme),
 	);
 	const mountEl = ensureMountElement();
 	applyScopeRoot(mountEl, msg.scopeId);

@@ -16,6 +16,16 @@ describe("rewriteModuleImports", () => {
 		expect(code).not.toMatch(/import\s+.*from/);
 	});
 
+	it("leaves @vue-interactive/theme imports to __getTheme__", () => {
+		const { code } = rewriteModuleImports(
+			`import { getTheme } from '@vue-interactive/theme'\nreturn {}`,
+			"notes/demo.md",
+			ctx,
+		);
+		expect(code).toContain("const { getTheme } = __getTheme__");
+		expect(code).not.toMatch(/import\s+.*from/);
+	});
+
 	it("leaves @obsidian imports to __obsidian__", () => {
 		const { code } = rewriteModuleImports(
 			`import app from '@obsidian'\nimport { Notice } from '@obsidian'\nreturn {}`,

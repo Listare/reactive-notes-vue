@@ -70,7 +70,9 @@ describe("test-vault/11 - Obsidian API", () => {
 			{ fromPath: SOURCE_PATH, customScriptPath: "" },
 		);
 		expect(moduleCode).toContain("__obsidian__");
-		expect(moduleCode).toContain("function(__vue__, __require__, __importUrl__, __obsidian__)");
+		expect(moduleCode).toContain(
+			"function(__vue__, __require__, __importUrl__, __obsidian__, __getTheme__)",
+		);
 	});
 
 	it("executes with a mock Obsidian module", async () => {

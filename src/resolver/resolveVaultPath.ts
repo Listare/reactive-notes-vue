@@ -36,6 +36,14 @@ export function resolveVaultPath(
 	if (rawPath === "@obsidian" || rawPath === "obsidian") {
 		throw new ImportPathError('内置模块 "@obsidian" 不应走文件解析。');
 	}
+	if (
+		rawPath === "@vue-interactive/theme" ||
+		rawPath === "vue-interactive/theme"
+	) {
+		throw new ImportPathError(
+			'内置模块 "@vue-interactive/theme" 不应走文件解析。',
+		);
+	}
 
 	let resolved: string;
 

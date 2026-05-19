@@ -1,3 +1,4 @@
+import { rewriteGetThemeImportsInCode } from "./rewriteGetThemeImports";
 import { rewriteObsidianImportsInCode } from "./rewriteObsidianImports";
 
 export const VUE_IMPORT_RE =
@@ -24,9 +25,11 @@ export function rewriteVueImportsInCode(code: string): string {
 	});
 }
 
-/** Rewrites built-in `vue` and `@obsidian` imports for sandbox execution. */
+/** Rewrites built-in `vue`, `@obsidian`, and `@vue-interactive/theme` imports for sandbox execution. */
 export function rewriteBuiltinImportsInCode(code: string): string {
-	return rewriteObsidianImportsInCode(rewriteVueImportsInCode(code));
+	return rewriteGetThemeImportsInCode(
+		rewriteObsidianImportsInCode(rewriteVueImportsInCode(code)),
+	);
 }
 
 /** Converts built-in imports and `export default` into `return` for single-expression modules. */

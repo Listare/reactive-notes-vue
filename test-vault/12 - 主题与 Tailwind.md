@@ -27,7 +27,7 @@
     <p class="text-sm font-semibold" :class="labelClass">getTheme()</p>
     <p class="mt-1 text-lg font-mono">{{ theme }}</p>
     <p class="mt-2 text-xs opacity-80">
-      在 script 中调用 <code>getTheme()</code>，返回 <code>'dark'</code> 或
+      在 script 中 <code>import { getTheme }</code> 后调用，返回 <code>'dark'</code> 或
       <code>'light'</code>
     </p>
   </div>
@@ -35,6 +35,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { getTheme } from '@vue-interactive/theme'
 
 const theme = computed(() => getTheme())
 

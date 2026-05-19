@@ -13,7 +13,7 @@ export interface EmitBundleResult {
 }
 
 /**
- * Wraps modules into one async body for `new Function('__vue__', '__importUrl__', '__obsidian__', code)`.
+ * Wraps modules into one async body for `new Function('__vue__', '__importUrl__', '__obsidian__', '__getTheme__', code)`.
  * Uses lazy `__require__` so dependency factories run before dependents.
  */
 export function emitBundle(
@@ -46,7 +46,7 @@ export function emitBundle(
 			"  if (!factory) throw new Error('找不到模块: ' + id);",
 			"  const exports = {};",
 			"  __moduleCache__[id] = exports;",
-			"  const raw = await factory(__vue__, __require__, __importUrl__, __obsidian__);",
+			"  const raw = await factory(__vue__, __require__, __importUrl__, __obsidian__, __getTheme__);",
 			"  const resolved = raw && typeof raw === 'object' && raw !== null && 'default' in raw",
 			"    ? raw",
 			"    : { default: raw };",
@@ -63,7 +63,7 @@ export function emitBundle(
 			ctx,
 		);
 		append(
-			`__moduleFactories__[${JSON.stringify(mod.canonicalId)}] = function(__vue__, __require__, __importUrl__, __obsidian__) {`,
+			`__moduleFactories__[${JSON.stringify(mod.canonicalId)}] = function(__vue__, __require__, __importUrl__, __obsidian__, __getTheme__) {`,
 		);
 		append("return (async function() {");
 		append("const __export = await (async function() {");
