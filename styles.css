@@ -4,7 +4,61 @@
 }
 
 .vue-interactive-sandbox-host {
+	position: relative;
 	width: 100%;
+	min-height: 5rem;
+}
+
+.vue-interactive-placeholder {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 1rem 1.25rem;
+	border-radius: 6px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+}
+
+.vue-interactive-placeholder-inner {
+	width: 100%;
+	max-width: 14rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.vue-interactive-placeholder-line {
+	height: 0.5rem;
+	border-radius: 4px;
+	background: var(--background-modifier-hover);
+	animation: vue-interactive-placeholder-pulse 1.2s ease-in-out infinite;
+}
+
+.vue-interactive-placeholder-line--wide {
+	width: 100%;
+}
+
+.vue-interactive-placeholder-line--medium {
+	width: 75%;
+	animation-delay: 0.1s;
+}
+
+.vue-interactive-placeholder-line--short {
+	width: 45%;
+	animation-delay: 0.2s;
+}
+
+@keyframes vue-interactive-placeholder-pulse {
+	0%,
+	100% {
+		opacity: 0.45;
+	}
+	50% {
+		opacity: 1;
+	}
 }
 
 .vue-interactive-sandbox {

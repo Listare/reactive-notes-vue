@@ -7,6 +7,7 @@ import {
 import { applyThemeToElement } from "../theme/applyVueInteractiveTheme";
 import { resolveEffectiveTheme } from "../theme/getTheme";
 import { renderError } from "../ui/renderError";
+import { renderLoadingPlaceholder } from "../ui/renderLoadingPlaceholder";
 import { SandboxFrame } from "./sandboxFrame";
 import { registerVueBlock } from "./vueBlockRegistry";
 import type ReactiveNotesVuePlugin from "../main";
@@ -73,6 +74,7 @@ export class VueBlockChild extends MarkdownRenderChild {
 		const host = this.containerEl.createDiv({
 			cls: "vue-interactive-sandbox-host",
 		});
+		const placeholder = renderLoadingPlaceholder(host);
 
 		try {
 			const compiled = await compileSfcWithImports(source, {
@@ -91,6 +93,7 @@ export class VueBlockChild extends MarkdownRenderChild {
 				scopeId: compiled.scopeId,
 				theme,
 			});
+			placeholder.remove();
 		} catch (e) {
 			const err = e instanceof Error ? e : new Error(String(e));
 			renderError(this.containerEl, err.message, { stack: err.stack });
