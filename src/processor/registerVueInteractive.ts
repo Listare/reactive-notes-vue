@@ -2,6 +2,7 @@ import { MarkdownPostProcessorContext, TFile } from "obsidian";
 import type ReactiveNotesVuePlugin from "../main";
 import { findVueInteractiveBlockByContent } from "../markdown/findVueInteractiveBlockByContent";
 import { VueBlockChild } from "../runtime/VueBlockChild";
+import { registerVueBlock } from "../runtime/vueBlockRegistry";
 
 export function registerVueInteractiveProcessor(
 	plugin: ReactiveNotesVuePlugin,
@@ -21,8 +22,9 @@ async function renderVueInteractiveBlock(
 	ctx: MarkdownPostProcessorContext,
 ): Promise<void> {
 	const file = plugin.app.vault.getAbstractFileByPath(ctx.sourcePath);
+	let markdown: string | undefined;
 	if (file instanceof TFile) {
-		const markdown = await plugin.app.vault.read(file);
+		markdown = await plugin.app.vault.read(file);
 		const fence = findVueInteractiveBlockByContent(markdown, source);
 		if (fence?.hide) {
 			el.addClass("vue-interactive-hidden");
@@ -34,8 +36,9 @@ async function renderVueInteractiveBlock(
 	}
 
 	const child = new VueBlockChild(el, plugin, ctx.sourcePath);
+	registerVueBlock(el, child);
 	ctx.addChild(child);
-	await child.render(source);
+	await child.render(source, markdown);
 }
 
 export function registerThemeSync(plugin: ReactiveNotesVuePlugin): void {

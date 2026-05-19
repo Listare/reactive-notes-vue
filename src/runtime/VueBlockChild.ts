@@ -1,5 +1,9 @@
 import { MarkdownRenderChild } from "obsidian";
 import { compileSfcWithImports } from "../compiler/compileSfcWithImports";
+import {
+	listVisibleVueInteractiveBlocks,
+	type VueInteractiveBlockInfo,
+} from "../markdown/vueInteractiveFence";
 import { SandboxFrame } from "./sandboxFrame";
 import { buildThemeVariablesCss } from "./themeVariables";
 import { renderError } from "../ui/renderError";
@@ -7,16 +11,53 @@ import type ReactiveNotesVuePlugin from "../main";
 
 export class VueBlockChild extends MarkdownRenderChild {
 	private sandbox: SandboxFrame | null = null;
+	private visibleBlockIndex = -1;
 
 	constructor(
 		containerEl: HTMLElement,
 		private readonly plugin: ReactiveNotesVuePlugin,
-		private readonly sourcePath: string,
+		readonly sourcePath: string,
 	) {
 		super(containerEl);
 	}
 
-	async render(source: string): Promise<void> {
+	/** Resolves latest block source from vault markdown for refresh. */
+	resolveSourceForRefresh(
+		visibleBlocks: VueInteractiveBlockInfo[],
+	): string | null {
+		if (
+			this.visibleBlockIndex >= 0 &&
+			this.visibleBlockIndex < visibleBlocks.length
+		) {
+			return visibleBlocks[this.visibleBlockIndex]!.content;
+		}
+		const normalized = this.lastSource.trim();
+		const byContent = visibleBlocks.find(
+			(b) => b.content.trim() === normalized,
+		);
+		return byContent?.content ?? null;
+	}
+
+	private lastSource = "";
+
+	private rememberBlockIndex(source: string, markdown: string): void {
+		const normalized = source.trim();
+		let visibleIdx = 0;
+		for (const block of listVisibleVueInteractiveBlocks(markdown)) {
+			if (block.content.trim() === normalized) {
+				this.visibleBlockIndex = visibleIdx;
+				return;
+			}
+			visibleIdx++;
+		}
+		this.visibleBlockIndex = -1;
+	}
+
+	async render(source: string, markdownForIndex?: string): Promise<void> {
+		this.lastSource = source;
+		if (markdownForIndex != null) {
+			this.rememberBlockIndex(source, markdownForIndex);
+		}
 		this.onunload();
 		this.containerEl.empty();
 		this.containerEl.addClass("vue-interactive-root");

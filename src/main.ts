@@ -1,5 +1,6 @@
 import { Plugin } from "obsidian";
 import { DEFAULT_SETTINGS, type ReactiveNotesVueSettings } from "./settings";
+import { registerCommands } from "./commands/registerCommands";
 import {
 	registerVueInteractiveProcessor,
 	registerThemeSync,
@@ -14,6 +15,7 @@ export default class ReactiveNotesVuePlugin extends Plugin {
 		this.addSettingTab(new ReactiveNotesVueSettingTab(this.app, this));
 		registerVueInteractiveProcessor(this);
 		registerThemeSync(this);
+		registerCommands(this);
 	}
 
 	onunload(): void {}

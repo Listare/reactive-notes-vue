@@ -1,4 +1,9 @@
 import type { App } from "obsidian";
+import {
+	compileCacheKey,
+	getCachedCompile,
+	setCachedCompile,
+} from "../cache/vueInteractiveCaches";
 import { bundleGraph } from "../bundler/bundleGraph";
 import { collectImportsFromSfc } from "../bundler/collectImports";
 import type { CompileSfcResult } from "./compileSfc";
@@ -24,6 +29,12 @@ export async function compileSfcWithImports(
 	rawSource: string,
 	ctx: CompileBlockContext,
 ): Promise<CompileSfcResult> {
+	const cacheKey = compileCacheKey(ctx.sourcePath, rawSource);
+	const cached = getCachedCompile(cacheKey);
+	if (cached) {
+		return cached;
+	}
+
 	const resolveCtx = {
 		fromPath: ctx.sourcePath,
 		customScriptPath: normalizeCustomScriptPath(
@@ -40,33 +51,38 @@ export async function compileSfcWithImports(
 		`${ctx.sourcePath}.vue-interactive.ts`,
 	);
 
+	let result: CompileSfcResult;
+
 	if (imports.length === 0) {
-		return {
+		result = {
 			...compiled,
 			moduleCode,
 			stackRegions: [
 				singleModuleStackRegion(ctx.sourcePath, entryCanonicalId(ctx.sourcePath)),
 			],
 		};
+	} else {
+		const entryId = entryCanonicalId(ctx.sourcePath);
+		const bundled = await bundleGraph(
+			{
+				canonicalId: entryId,
+				vaultPath: ctx.sourcePath,
+				code: moduleCode,
+				styles: compiled.styles,
+			},
+			resolveCtx,
+			loader,
+			imports,
+		);
+
+		result = {
+			scopeId: compiled.scopeId,
+			moduleCode: bundled.moduleCode,
+			styles: bundled.styles,
+			stackRegions: bundled.stackRegions,
+		};
 	}
 
-	const entryId = entryCanonicalId(ctx.sourcePath);
-	const bundled = await bundleGraph(
-		{
-			canonicalId: entryId,
-			vaultPath: ctx.sourcePath,
-			code: moduleCode,
-			styles: compiled.styles,
-		},
-		resolveCtx,
-		loader,
-		imports,
-	);
-
-	return {
-		scopeId: compiled.scopeId,
-		moduleCode: bundled.moduleCode,
-		styles: bundled.styles,
-		stackRegions: bundled.stackRegions,
-	};
+	setCachedCompile(cacheKey, result);
+	return result;
 }
