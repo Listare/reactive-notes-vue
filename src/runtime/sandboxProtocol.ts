@@ -34,4 +34,10 @@ export type SandboxOutbound =
 			message: string;
 			stack?: string;
 	  }
+	| {
+			type: "vue-sandbox-runtime-error";
+			requestId: string;
+			message: string;
+			stack?: string;
+	  }
 	| { type: "vue-sandbox-resize"; requestId: string; height: number };

@@ -8,6 +8,7 @@ import type { VueInteractiveTheme } from "../theme/getTheme";
 import { createObsidianSandboxModule } from "./obsidian/proxyClient";
 import { executeModule } from "./executeModule";
 import { rewriteRuntimeStack } from "./stackTrace";
+import type { StackCodeRegion } from "./stackTrace";
 import type {
 	SandboxInbound,
 	SandboxOutbound,
@@ -15,6 +16,11 @@ import type {
 } from "./sandboxProtocol";
 
 let vueApp: VueApp | null = null;
+type ActiveRenderSession = {
+	requestId: string;
+	stackRegions: StackCodeRegion[];
+};
+let activeRender: ActiveRenderSession | null = null;
 const styleEls: HTMLStyleElement[] = [];
 let resizeObserver: ResizeObserver | null = null;
 let obsidianPort: MessagePort | null = null;
@@ -38,7 +44,28 @@ function ensureMountElement(): HTMLElement {
 	return mount;
 }
 
+function normalizeError(err: unknown): Error {
+	return err instanceof Error ? err : new Error(String(err));
+}
+
+function reportRuntimeError(err: unknown, detail?: string): void {
+	if (!activeRender) return;
+	const error = normalizeError(err);
+	const message = detail
+		? `${error.message} (${detail})`
+		: error.message;
+	post({
+		type: "vue-sandbox-runtime-error",
+		requestId: activeRender.requestId,
+		message,
+		stack:
+			rewriteRuntimeStack(error.stack, activeRender.stackRegions) ??
+			error.stack,
+	});
+}
+
 function clearMount(): void {
+	activeRender = null;
 	if (vueApp) {
 		vueApp.unmount();
 		vueApp = null;
@@ -115,7 +142,16 @@ async function handleRender(
 	const mountEl = ensureMountElement();
 	applyScopeRoot(mountEl, msg.scopeId);
 	applySandboxTheme(msg.theme);
+	// activeRender before mount: onMounted runs inside mount() (post-flush), so
+	// lifecycle errors must be reportable before vue-sandbox-rendered is posted.
+	activeRender = {
+		requestId: msg.requestId,
+		stackRegions: msg.stackRegions,
+	};
 	vueApp = createApp(component);
+	vueApp.config.errorHandler = (err, _instance, info) => {
+		reportRuntimeError(err, info);
+	};
 	vueApp.mount(mountEl);
 	post({ type: "vue-sandbox-rendered", requestId: msg.requestId });
 	watchResize(msg.requestId);
@@ -135,6 +171,7 @@ window.addEventListener("message", (event: MessageEvent) => {
 
 	if (data.type === "vue-sandbox-render") {
 		void handleRender(data).catch((e) => {
+			clearMount();
 			const err = e instanceof Error ? e : new Error(String(e));
 			post({
 				type: "vue-sandbox-error",
@@ -156,6 +193,16 @@ window.addEventListener("message", (event: MessageEvent) => {
 	if (data.type === "vue-sandbox-theme") {
 		applySandboxTheme(data.theme);
 	}
+});
+
+window.addEventListener("error", (event) => {
+	if (!activeRender) return;
+	reportRuntimeError(event.error ?? event.message);
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+	if (!activeRender) return;
+	reportRuntimeError(event.reason);
 });
 
 ensureMountElement();

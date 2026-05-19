@@ -6,14 +6,14 @@ export interface ErrorLocation {
 export function renderError(
 	container: HTMLElement,
 	message: string,
-	options?: { stack?: string; loc?: ErrorLocation },
+	options?: { stack?: string; loc?: ErrorLocation; title?: string },
 ): void {
 	container.empty();
 	container.addClass("vue-interactive-error");
 
 	container.createEl("p", {
 		cls: "vue-interactive-error-title",
-		text: "Vue 组件错误",
+		text: options?.title ?? "Vue 组件错误",
 	});
 
 	if (options?.loc?.line != null) {

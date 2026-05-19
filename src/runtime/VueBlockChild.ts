@@ -74,6 +74,9 @@ export class VueBlockChild extends MarkdownRenderChild {
 		const host = this.containerEl.createDiv({
 			cls: "vue-interactive-sandbox-host",
 		});
+		const runtimeErrorHost = this.containerEl.createDiv({
+			cls: "vue-interactive-runtime-error-host",
+		});
 		const placeholder = renderLoadingPlaceholder(host);
 
 		try {
@@ -86,13 +89,21 @@ export class VueBlockChild extends MarkdownRenderChild {
 			this.sandbox = sandbox;
 			await sandbox.init();
 			const theme = this.currentTheme();
-			await sandbox.renderInSandbox({
-				moduleCode: compiled.moduleCode,
-				stackRegions: compiled.stackRegions,
-				styles: compiled.styles,
-				scopeId: compiled.scopeId,
-				theme,
-			});
+			await sandbox.renderInSandbox(
+				{
+					moduleCode: compiled.moduleCode,
+					stackRegions: compiled.stackRegions,
+					styles: compiled.styles,
+					scopeId: compiled.scopeId,
+					theme,
+				},
+				(error) => {
+					renderError(runtimeErrorHost, error.message, {
+						stack: error.stack,
+						title: "运行时错误",
+					});
+				},
+			);
 			placeholder.remove();
 		} catch (e) {
 			const err = e instanceof Error ? e : new Error(String(e));

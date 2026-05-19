@@ -11,6 +11,11 @@ import type {
 import type { VueInteractiveTheme } from "../theme/getTheme";
 import type { StackCodeRegion } from "./stackTrace";
 
+export type SandboxRuntimeError = {
+	message: string;
+	stack?: string;
+};
+
 export class SandboxFrame {
 	private iframe: HTMLIFrameElement | null = null;
 	private readyPromise: Promise<void> | null = null;
@@ -18,6 +23,9 @@ export class SandboxFrame {
 	private requestCounter = 0;
 	private obsidianBridge: ObsidianBridgeSession | null = null;
 	private obsidianPortTransferred = false;
+	private activeRequestId: string | null = null;
+	private onRuntimeError: ((error: SandboxRuntimeError) => void) | null =
+		null;
 
 	constructor(
 		private readonly container: HTMLElement,
@@ -78,6 +86,17 @@ export class SandboxFrame {
 			const data = event.data as SandboxOutbound;
 			if (data?.type === "vue-sandbox-resize") {
 				iframe.style.height = `${Math.max(data.height, 1)}px`;
+				return;
+			}
+			if (
+				data?.type === "vue-sandbox-runtime-error" &&
+				data.requestId === this.activeRequestId &&
+				this.onRuntimeError
+			) {
+				this.onRuntimeError({
+					message: data.message,
+					stack: data.stack,
+				});
 			}
 		};
 		window.addEventListener("message", this.messageHandler);
@@ -85,13 +104,17 @@ export class SandboxFrame {
 		return this.readyPromise;
 	}
 
-	renderInSandbox(options: {
-		moduleCode: string;
-		stackRegions: StackCodeRegion[];
-		styles: SandboxStyleChunk[];
-		scopeId: string;
-		theme: VueInteractiveTheme;
-	}): Promise<void> {
+	renderInSandbox(
+		options: {
+			moduleCode: string;
+			stackRegions: StackCodeRegion[];
+			styles: SandboxStyleChunk[];
+			scopeId: string;
+			theme: VueInteractiveTheme;
+		},
+		onRuntimeError?: (error: SandboxRuntimeError) => void,
+	): Promise<void> {
+		this.onRuntimeError = onRuntimeError ?? null;
 		return this.postRender(options);
 	}
 
@@ -109,6 +132,7 @@ export class SandboxFrame {
 		}
 
 		const requestId = `r${++this.requestCounter}`;
+		this.activeRequestId = requestId;
 		const message: SandboxInbound = {
 			type: "vue-sandbox-render",
 			requestId,
@@ -122,6 +146,7 @@ export class SandboxFrame {
 		return new Promise((resolve, reject) => {
 			const timeout = window.setTimeout(() => {
 				cleanup();
+				this.activeRequestId = null;
 				reject(new Error("沙盒渲染超时。"));
 			}, 30_000);
 
@@ -137,10 +162,12 @@ export class SandboxFrame {
 				}
 
 				if (data.type === "vue-sandbox-rendered") {
+					this.activeRequestId = requestId;
 					cleanup();
 					resolve();
 				} else if (data.type === "vue-sandbox-error") {
 					cleanup();
+					this.activeRequestId = null;
 					const err = new Error(data.message);
 					if (data.stack) {
 						err.stack = data.stack;
@@ -179,6 +206,8 @@ export class SandboxFrame {
 	}
 
 	unmount(): void {
+		this.activeRequestId = null;
+		this.onRuntimeError = null;
 		const iframe = this.iframe;
 		if (iframe?.contentWindow) {
 			const requestId = `u${++this.requestCounter}`;
