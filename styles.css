@@ -1,8 +1,50 @@
-/*
+.vue-interactive-root {
+	margin: 0.75rem 0;
+	max-width: 100%;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.vue-interactive-mount {
+	width: 100%;
+}
 
-If your plugin does not need CSS, delete this file.
+.vue-interactive-error {
+	margin: 0.75rem 0;
+	padding: 0.75rem 1rem;
+	border-radius: 6px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+}
 
-*/
+.vue-interactive-error-title {
+	margin: 0 0 0.5rem;
+	color: var(--text-error);
+	font-weight: bold;
+}
+
+.vue-interactive-error-loc {
+	margin: 0 0 0.5rem;
+	font-size: 0.9em;
+	opacity: 0.85;
+}
+
+.vue-interactive-error-message,
+.vue-interactive-error-stack {
+	margin: 0;
+	padding: 0.5rem 0.75rem;
+	border-radius: 4px;
+	background: var(--background-secondary-alt);
+	color: var(--text-error);
+	white-space: pre-wrap;
+	word-break: break-word;
+	font-family: var(--font-monospace);
+	font-size: 0.85em;
+}
+
+.vue-interactive-error details {
+	margin-top: 0.5rem;
+}
+
+.vue-interactive-error summary {
+	cursor: pointer;
+	font-size: 0.9em;
+}

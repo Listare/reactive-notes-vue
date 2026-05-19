@@ -1,0 +1,63 @@
+---
+description: TypeScript 规范、模块划分、单元测试与 pnpm 工作流
+alwaysApply: true
+---
+
+# 项目编码与工程规范
+
+## 包管理
+
+- 使用 **pnpm**，不要用 npm/yarn：`pnpm install`、`pnpm run dev`、`pnpm run build`、`pnpm test`。
+- 新增依赖：`pnpm add <pkg>` / `pnpm add -D <pkg>`。
+
+## TypeScript
+
+- 全项目 TypeScript；保持 `strict` 开启，避免 `any`（第三方类型缺失时用 `unknown` + 收窄）。
+- 优先 `interface` 描述对象形状；用 `type` 做联合/工具类型。
+- 使用 `async/await` 与显式错误处理；不要空 `catch`。
+- 导出 API 与公共类型需有清晰命名；避免默认导出泛滥（`main.ts` 插件入口除外）。
+
+```typescript
+// ❌ BAD
+catch (e) {}
+
+// ✅ GOOD
+catch (e) {
+  const err = e instanceof Error ? e : new Error(String(e));
+  console.error("compile failed", err);
+  throw err;
+}
+```
+
+## 模块划分
+
+- 源码在 `src/`；`main.ts` 仅负责插件生命周期（`onload` / `onunload`、注册 processor/command）。
+- 按职责分目录，例如：`compiler/`、`runtime/`、`processor/`、`ui/`、`utils/`；单文件聚焦单一职责，超过约 300 行应拆分。
+- 纯逻辑与 Obsidian API 解耦：编译、字符串处理、组装模块等放在无 `obsidian` 导入的模块中。
+
+```
+src/
+  main.ts
+  compiler/     # SFC 解析、编译、拼接（无 Obsidian）
+  runtime/      # 挂载/卸载（可依赖 vue）
+  processor/    # registerMarkdownCodeBlockProcessor
+  ui/           # 错误展示等 DOM
+```
+
+## 单元测试
+
+- 对**不依赖** Obsidian、`electron`、真实 vault/网络的模块编写单元测试。
+- 需要 Obsidian `App` / `Plugin` / DOM 集成的代码用薄适配层 + 手动/E2E 验证，不强行单元测试。
+- 测试文件与源码同目录或放在 `src/**/__tests__/*.test.ts`；命名 `*.test.ts`。
+- 运行：`pnpm test`（实现后）；新增纯函数/编译管线逻辑时同步补测试。
+
+```typescript
+// 应测：normalizeSfc、assembleModule、rewriteImports、hash 等
+// 不测：registerVueInteractiveProcessor 内直接调 app.vault 的流程
+```
+
+## 实现时检查
+
+- [ ] 新功能是否落在正确目录、未堆进 `main.ts`
+- [ ] 纯逻辑是否有对应 `*.test.ts`
+- [ ] 文档与命令示例是否使用 pnpm
