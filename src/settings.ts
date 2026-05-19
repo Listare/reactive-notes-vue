@@ -1,8 +1,10 @@
 export interface ReactiveNotesVueSettings {
-	/** Reserved for future options. */
 	enabled: boolean;
+	/** Vault-relative folder for `@custom-script/` imports. */
+	customScriptPath: string;
 }
 
 export const DEFAULT_SETTINGS: ReactiveNotesVueSettings = {
 	enabled: true,
+	customScriptPath: "",
 };

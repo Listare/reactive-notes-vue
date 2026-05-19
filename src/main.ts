@@ -4,12 +4,14 @@ import {
 	registerVueInteractiveProcessor,
 	registerThemeSync,
 } from "./processor/registerVueInteractive";
+import { ReactiveNotesVueSettingTab } from "./ui/ReactiveNotesVueSettingTab";
 
 export default class ReactiveNotesVuePlugin extends Plugin {
 	settings: ReactiveNotesVueSettings = DEFAULT_SETTINGS;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
+		this.addSettingTab(new ReactiveNotesVueSettingTab(this.app, this));
 		registerVueInteractiveProcessor(this);
 		registerThemeSync(this);
 	}

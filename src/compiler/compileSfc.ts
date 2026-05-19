@@ -6,7 +6,6 @@ import {
 	type SFCDescriptor,
 } from "vue/compiler-sfc";
 import { normalizeSfc } from "./normalizeSfc";
-import { validateScriptImports } from "./rewriteImports";
 import { assembleModule } from "./assembleModule";
 import { hashScopeId } from "../utils/hashScopeId";
 
@@ -121,10 +120,17 @@ function compileDescriptor(
 	return { scopeId, moduleCode, styles };
 }
 
+export interface CompileSfcOptions {
+	/** When false, skips import bundling (used while resolving `.vue` dependencies). */
+	bundleImports?: boolean;
+}
+
 /** Compiles vue-interactive SFC source to executable module code + scoped CSS. */
-export function compileSfc(rawSource: string): CompileSfcResult {
+export function compileSfc(
+	rawSource: string,
+	_options?: CompileSfcOptions,
+): CompileSfcResult {
 	const normalized = normalizeSfc(rawSource);
-	validateScriptImports(normalized);
 
 	const { descriptor, errors } = parse(normalized, {
 		filename: "block.vue",

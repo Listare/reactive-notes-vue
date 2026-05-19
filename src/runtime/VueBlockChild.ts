@@ -1,13 +1,18 @@
 import { MarkdownRenderChild } from "obsidian";
-import { compileSfc } from "../compiler/compileSfc";
+import { compileSfcWithImports } from "../compiler/compileSfcWithImports";
 import { SandboxFrame } from "./sandboxFrame";
 import { buildThemeVariablesCss } from "./themeVariables";
 import { renderError } from "../ui/renderError";
+import type ReactiveNotesVuePlugin from "../main";
 
 export class VueBlockChild extends MarkdownRenderChild {
 	private sandbox: SandboxFrame | null = null;
 
-	constructor(containerEl: HTMLElement) {
+	constructor(
+		containerEl: HTMLElement,
+		private readonly plugin: ReactiveNotesVuePlugin,
+		private readonly sourcePath: string,
+	) {
 		super(containerEl);
 	}
 
@@ -22,7 +27,11 @@ export class VueBlockChild extends MarkdownRenderChild {
 		});
 
 		try {
-			const compiled = compileSfc(source);
+			const compiled = await compileSfcWithImports(source, {
+				app: this.plugin.app,
+				settings: this.plugin.settings,
+				sourcePath: this.sourcePath,
+			});
 			const sandbox = new SandboxFrame(host);
 			this.sandbox = sandbox;
 			await sandbox.init();

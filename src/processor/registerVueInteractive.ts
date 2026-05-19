@@ -8,7 +8,7 @@ export function registerVueInteractiveProcessor(
 	plugin.registerMarkdownCodeBlockProcessor(
 		"vue-interactive",
 		(source, el, ctx: MarkdownPostProcessorContext) => {
-			const child = new VueBlockChild(el);
+			const child = new VueBlockChild(el, plugin, ctx.sourcePath);
 			ctx.addChild(child);
 			void child.render(source);
 		},
