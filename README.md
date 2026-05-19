@@ -55,7 +55,7 @@ button {
 
 - 必须包含 `<template>` 与 `<script setup>`；若未写 `lang`，会自动补上 `lang="ts"`。
 - 围栏可选属性（写在语言标识后）：`{name=名称}` 供 `?block=` 导入；`{hide=true}` 时阅读模式不渲染（仅作模块导出）。可组合，例如 ` ```vue-interactive {name=Chip, hide=true}`。
-- 支持从库内文件导入（见下方）；`vue` 仍为唯一外部 npm 包。
+- 支持从库内文件或 HTTPS URL 导入（见下方）；`vue` 由插件内置，其余 npm 包可通过 ESM CDN URL 引入。
 
 ### 文件导入
 
@@ -64,6 +64,7 @@ button {
 | `./路径` | 相对于**当前笔记**所在目录 |
 | `@/路径` | 相对于**库根目录** |
 | `@custom-script/路径` | 相对于插件设置中的「自定义脚本路径」 |
+| `https://…` / `http://…` | 从 ESM CDN 等远程 URL 动态导入（如 [esm.sh](https://esm.sh)） |
 
 可导入类型：
 
@@ -76,6 +77,16 @@ button {
 非 JS 类语言的命名代码块（如 `yaml`、`json`）作为数据对象导入；`json` 会解析为对象。
 
 在 **设置 → Reactive Notes Vue** 配置自定义脚本路径（库内文件夹，如 `scripts`）。**仅当**代码中使用了 `@custom-script/` 导入时才会校验该路径；未使用时可不配置。路径无效或未配置却使用 `@custom-script/` 时会显示错误。
+
+### 从 CDN 导入 ESM
+
+在 `<script setup>` 中可直接写完整 URL（需联网）：
+
+```ts
+import { debounce } from "https://esm.sh/lodash-es@4.17.21/debounce";
+```
+
+URL 中的查询参数会原样保留（例如 `https://esm.sh/vue?target=esnext`）。CDN 模块在沙盒 iframe 内通过原生 `import()` 加载。
 
 ## 架构
 

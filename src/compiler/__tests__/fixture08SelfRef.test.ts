@@ -117,6 +117,6 @@ describe("fixture 08 self-reference", () => {
 		expect(bundled.moduleCode).toContain("?block=Chip");
 		expect(bundled.moduleCode).toContain("?block=modA");
 		expect(bundled.moduleCode).toContain("?block=modB");
-		expect(() => executeModule(bundled.moduleCode)).not.toThrow();
+		await expect(executeModule(bundled.moduleCode)).resolves.toBeDefined();
 	});
 });

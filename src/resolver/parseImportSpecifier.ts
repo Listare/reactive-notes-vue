@@ -7,6 +7,9 @@ export interface ParsedImportSpecifier {
 
 /** Splits `path?block=name` from an import specifier. */
 export function parseImportSpecifier(specifier: string): ParsedImportSpecifier {
+	if (/^https?:\/\//i.test(specifier)) {
+		return { path: specifier };
+	}
 	const qIndex = specifier.indexOf("?");
 	if (qIndex === -1) {
 		return { path: specifier };

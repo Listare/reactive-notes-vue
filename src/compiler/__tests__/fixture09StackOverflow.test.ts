@@ -62,7 +62,7 @@ describe("fixture 09 stack overflow", () => {
 
 		let thrown: Error | undefined;
 		try {
-			executeModule(bundledCode);
+			await executeModule(bundledCode);
 		} catch (e) {
 			thrown = e instanceof Error ? e : new Error(String(e));
 		}

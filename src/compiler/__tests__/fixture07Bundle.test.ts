@@ -73,6 +73,6 @@ describe("fixture 07 bundle", () => {
 			imports,
 		);
 
-		expect(() => executeModule(bundled.moduleCode)).not.toThrow();
+		await expect(executeModule(bundled.moduleCode)).resolves.toBeDefined();
 	});
 });

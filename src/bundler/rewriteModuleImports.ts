@@ -1,8 +1,8 @@
-import { parseImportSpecifier } from "../resolver/parseImportSpecifier";
 import {
-	resolveVaultPath,
-	type ResolvePathContext,
-} from "../resolver/resolveVaultPath";
+	isUrlImportSpecifier,
+	resolveModuleCanonicalId,
+} from "../resolver/isUrlImport";
+import type { ResolvePathContext } from "../resolver/resolveVaultPath";
 import { rewriteVueImportsInCode, VUE_IMPORT_RE } from "../compiler/rewriteImports";
 
 function toCanonicalId(
@@ -10,12 +10,15 @@ function toCanonicalId(
 	fromVaultPath: string,
 	ctx: ResolvePathContext,
 ): string {
-	const { block } = parseImportSpecifier(specifier);
-	const vaultPath = resolveVaultPath(specifier, {
-		...ctx,
-		fromPath: fromVaultPath,
-	});
-	return block ? `${vaultPath}?block=${encodeURIComponent(block)}` : vaultPath;
+	return resolveModuleCanonicalId(specifier, fromVaultPath, ctx);
+}
+
+function requireExpr(specifier: string, fromVaultPath: string, ctx: ResolvePathContext): string {
+	const id = toCanonicalId(specifier, fromVaultPath, ctx);
+	if (isUrlImportSpecifier(specifier)) {
+		return `await __importUrl__(${JSON.stringify(id)})`;
+	}
+	return `await __require__(${JSON.stringify(id)})`;
 }
 
 const SIDE_EFFECT_IMPORT_RE = /^\s*import\s+['"]([^'"]+)['"]\s*;?\s*$/gm;
@@ -39,6 +42,22 @@ function rewriteNamedBinding(binding: string): string {
 		.join(", ");
 }
 
+/** Per-binding import for CDN modules that only export `default` (e.g. esm.sh subpaths). */
+function rewriteUrlNamedBindings(named: string, modVar: string): string {
+	return named
+		.split(",")
+		.map((part) => {
+			const trimmed = part.trim();
+			if (!trimmed) return "";
+			const asMatch = /^([\w$]+)\s+as\s+([\w$]+)$/.exec(trimmed);
+			const exportName = asMatch?.[1] ?? trimmed;
+			const localName = asMatch?.[2] ?? trimmed;
+			return `const ${localName} = ${modVar}[${JSON.stringify(exportName)}] ?? ${modVar}.default;`;
+		})
+		.filter(Boolean)
+		.join("\n");
+}
+
 /** Rewrites `vue` and vault imports to `__vue__` / `__require__(id)`. */
 export function rewriteModuleImports(
 	code: string,
@@ -56,8 +75,7 @@ export function rewriteModuleImports(
 	out = out.replace(SIDE_EFFECT_IMPORT_RE, (_full, spec: string) => {
 		if (spec === "vue") return "";
 		addDep(spec);
-		const id = toCanonicalId(spec, fromVaultPath, ctx);
-		return `__require__(${JSON.stringify(id)});\n`;
+		return `${requireExpr(spec, fromVaultPath, ctx)};\n`;
 	});
 
 	out = out.replace(
@@ -77,8 +95,7 @@ export function rewriteModuleImports(
 				return _full;
 			}
 			addDep(spec);
-			const id = toCanonicalId(spec, fromVaultPath, ctx);
-			const req = `__require__(${JSON.stringify(id)})`;
+			const req = requireExpr(spec, fromVaultPath, ctx);
 
 			if (namespaceId) {
 				return `const ${namespaceId} = ${req};\n`;
@@ -87,12 +104,18 @@ export function rewriteModuleImports(
 			const bindings: string[] = [];
 			const def = defaultId ?? defaultOnly;
 			if (def) {
-				bindings.push(`const ${def} = ${req}.default;`);
+				bindings.push(`const ${def} = (${req}).default;`);
 			}
 			const named = namedOnly ?? namedWithDefault;
 			if (named) {
-				const props = rewriteNamedBinding(named);
-				bindings.push(`const { ${props} } = ${req};`);
+				if (isUrlImportSpecifier(spec) && !def) {
+					const modVar = `__url_mod_${dependencyIds.length}`;
+					bindings.unshift(`const ${modVar} = ${req};`);
+					bindings.push(rewriteUrlNamedBindings(named, modVar));
+				} else {
+					const props = rewriteNamedBinding(named);
+					bindings.push(`const { ${props} } = ${req};`);
+				}
 			}
 			return bindings.join("\n") + "\n";
 		},

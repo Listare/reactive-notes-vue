@@ -3,7 +3,7 @@ import { emitBundle } from "../emitBundle";
 import { executeModule } from "../../runtime/executeModule";
 
 describe("emitBundle", () => {
-	it("loads dependencies before entry via lazy __require__", () => {
+	it("loads dependencies before entry via lazy __require__", async () => {
 		const { moduleCode: code } = emitBundle(
 			[
 				{
@@ -28,6 +28,6 @@ return { setup() { return () => null } }
 			{ fromPath: "notes/entry.md", customScriptPath: "" },
 		);
 
-		expect(() => executeModule(code)).not.toThrow();
+		await expect(executeModule(code)).resolves.toBeDefined();
 	});
 });

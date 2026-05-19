@@ -4,7 +4,7 @@ import { executeModule } from "../executeModule";
 import { rewriteRuntimeStack } from "../stackTrace";
 
 describe("rewriteRuntimeStack", () => {
-	it("maps eval <anonymous> lines to vault file and block", () => {
+	it("maps eval <anonymous> lines to vault file and block", async () => {
 		const { moduleCode, stackRegions } = emitBundle(
 			[
 				{
@@ -29,7 +29,7 @@ return { default: boom() }`,
 
 		let rawStack = "";
 		try {
-			executeModule(moduleCode);
+			await executeModule(moduleCode);
 		} catch (e) {
 			rawStack = (e as Error).stack ?? "";
 		}

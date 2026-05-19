@@ -7,8 +7,11 @@ import { collectImportsFromCode } from "./collectImports";
 import { emitBundle } from "./emitBundle";
 import { parseImportSpecifier } from "../resolver/parseImportSpecifier";
 import {
+	isUrlImportSpecifier,
+	resolveModuleCanonicalId,
+} from "../resolver/isUrlImport";
+import {
 	CUSTOM_SCRIPT_PREFIX,
-	resolveVaultPath,
 	type ResolvePathContext,
 } from "../resolver/resolveVaultPath";
 import { validateCustomScriptPathWhenUsed } from "../settings/validateCustomScriptPath";
@@ -33,14 +36,7 @@ function canonicalIdFromRequest(
 	fromVaultPath: string,
 	ctx: ResolvePathContext,
 ): string {
-	const { block } = parseImportSpecifier(specifier);
-	const vaultPath = resolveVaultPath(specifier, {
-		...ctx,
-		fromPath: fromVaultPath,
-	});
-	return block
-		? `${vaultPath}?block=${encodeURIComponent(block)}`
-		: vaultPath;
+	return resolveModuleCanonicalId(specifier, fromVaultPath, ctx);
 }
 
 /**
@@ -94,6 +90,16 @@ export async function bundleGraph(
 		const id = canonicalIdFromRequest(specifier, fromVaultPath, ctx);
 
 		if (records.has(id)) continue;
+
+		if (isUrlImportSpecifier(specifier)) {
+			records.set(id, {
+				canonicalId: id,
+				vaultPath: parseImportSpecifier(specifier).path,
+				code: "return {};",
+				styles: [],
+			});
+			continue;
+		}
 
 		if (visiting.has(id)) {
 			continue;

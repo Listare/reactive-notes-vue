@@ -28,7 +28,7 @@ describe("compileSfc", () => {
 		expect(styles[0]?.scoped).toBe(true);
 		expect(moduleCode).toContain("__vue__");
 
-		const component = executeModule(moduleCode);
+		const component = await executeModule(moduleCode);
 		const mountPoint = document.createElement("div");
 		document.body.appendChild(mountPoint);
 

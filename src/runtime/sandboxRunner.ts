@@ -88,12 +88,14 @@ function watchResize(requestId: string): void {
 	reportResize(requestId);
 }
 
-function handleRender(msg: Extract<SandboxInbound, { type: "vue-sandbox-render" }>): void {
+async function handleRender(
+	msg: Extract<SandboxInbound, { type: "vue-sandbox-render" }>,
+): Promise<void> {
 	clearMount();
 	applyTheme(msg.themeDark);
 	injectThemeVariables(msg.themeCss);
 	injectStyles(msg.styles, msg.scopeId);
-	const component: Component = executeModule(msg.moduleCode);
+	const component: Component = await executeModule(msg.moduleCode);
 	const mountEl = ensureMountElement();
 	applyScopeRoot(mountEl, msg.scopeId);
 	vueApp = createApp(component);
@@ -109,9 +111,7 @@ window.addEventListener("message", (event: MessageEvent) => {
 	}
 
 	if (data.type === "vue-sandbox-render") {
-		try {
-			handleRender(data);
-		} catch (e) {
+		void handleRender(data).catch((e) => {
 			const err = e instanceof Error ? e : new Error(String(e));
 			post({
 				type: "vue-sandbox-error",
@@ -119,7 +119,7 @@ window.addEventListener("message", (event: MessageEvent) => {
 				message: err.message,
 				stack: rewriteRuntimeStack(err.stack, data.stackRegions) ?? err.stack,
 			});
-		}
+		});
 		return;
 	}
 

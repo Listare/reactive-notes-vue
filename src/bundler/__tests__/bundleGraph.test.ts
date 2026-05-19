@@ -123,6 +123,34 @@ return { setup() { return () => null } }
 			loader,
 		);
 
-		expect(() => executeModule(result.moduleCode)).not.toThrow();
+		await expect(executeModule(result.moduleCode)).resolves.toBeDefined();
+	});
+
+	it("records URL imports without calling the vault loader", async () => {
+		const loader: ModuleLoader = {
+			fileExists: async () => true,
+			loadModule: async () => {
+				throw new Error("vault loader should not run for URL imports");
+			},
+		};
+
+		const url = "https://esm.sh/idb-keyval@6";
+		const result = await bundleGraph(
+			{
+				canonicalId: "notes/entry.md#vue-interactive-entry",
+				vaultPath: "notes/entry.md",
+				code: `
+import { get } from '${url}'
+return { setup() { return () => null } }
+`.trim(),
+				styles: [],
+			},
+			{ fromPath: "notes/entry.md", customScriptPath: "" },
+			loader,
+			[url],
+		);
+
+		expect(result.moduleCode).toContain("__importUrl__");
+		expect(result.moduleCode).toContain(url);
 	});
 });

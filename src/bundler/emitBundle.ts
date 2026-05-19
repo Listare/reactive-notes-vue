@@ -13,7 +13,7 @@ export interface EmitBundleResult {
 }
 
 /**
- * Wraps modules into one IIFE body for `new Function('__vue__', code)`.
+ * Wraps modules into one async body for `new Function('__vue__', '__importUrl__', code)`.
  * Uses lazy `__require__` so dependency factories run before dependents.
  */
 export function emitBundle(
@@ -38,7 +38,7 @@ export function emitBundle(
 	append("const __moduleCache__ = Object.create(null);");
 	append(
 		[
-			"function __require__(id) {",
+			"async function __require__(id) {",
 			"  if (Object.prototype.hasOwnProperty.call(__moduleCache__, id)) {",
 			"    return __moduleCache__[id];",
 			"  }",
@@ -46,7 +46,7 @@ export function emitBundle(
 			"  if (!factory) throw new Error('找不到模块: ' + id);",
 			"  const exports = {};",
 			"  __moduleCache__[id] = exports;",
-			"  const raw = factory(__vue__, __require__);",
+			"  const raw = await factory(__vue__, __require__, __importUrl__);",
 			"  const resolved = raw && typeof raw === 'object' && raw !== null && 'default' in raw",
 			"    ? raw",
 			"    : { default: raw };",
@@ -63,9 +63,10 @@ export function emitBundle(
 			ctx,
 		);
 		append(
-			`__moduleFactories__[${JSON.stringify(mod.canonicalId)}] = function(__vue__, __require__) {`,
+			`__moduleFactories__[${JSON.stringify(mod.canonicalId)}] = function(__vue__, __require__, __importUrl__) {`,
 		);
-		append("const __export = (function() {");
+		append("return (async function() {");
+		append("const __export = await (async function() {");
 		const codeStartLine = currentLine;
 		append(code);
 		stackRegions.push({
@@ -79,6 +80,7 @@ export function emitBundle(
 				"return __export && typeof __export === 'object' && __export !== null && 'default' in __export",
 				"  ? __export",
 				"  : { default: __export };",
+				"})();",
 				"};",
 			].join("\n"),
 		);
@@ -89,7 +91,7 @@ export function emitBundle(
 	}
 
 	append(
-		`return __require__(${JSON.stringify(entryCanonicalId)}).default;`,
+		`return (async () => (await __require__(${JSON.stringify(entryCanonicalId)})).default)();`,
 	);
 
 	return { moduleCode: parts.join("\n"), stackRegions };

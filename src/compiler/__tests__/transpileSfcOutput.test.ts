@@ -7,7 +7,7 @@ import { executeModule } from "../../runtime/executeModule";
 import { transpileTypeScript } from "../../bundler/transpile";
 
 describe("transpile SFC output", () => {
-	it("Chip block runs after transpile (no TS type annotations in output)", () => {
+	it("Chip block runs after transpile (no TS type annotations in output)", async () => {
 		const md = readFileSync(
 			join(process.cwd(), "test-vault/08 - 自引用.md"),
 			"utf8",
@@ -19,6 +19,6 @@ describe("transpile SFC output", () => {
 			"08 - 自引用/__block__-Chip.ts",
 		);
 		expect(js).not.toMatch(/:\s*any\b/);
-		expect(() => executeModule(js)).not.toThrow();
+		await expect(executeModule(js)).resolves.toBeDefined();
 	});
 });

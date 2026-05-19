@@ -12,7 +12,7 @@ const BLOCK_A = readFileSync(
 ).match(/```vue-interactive\n([\s\S]*?)```/)?.[1];
 
 describe("scoped mount", () => {
-	it("applies scoped styles via mount-root rewrite", () => {
+	it("applies scoped styles via mount-root rewrite", async () => {
 		if (!BLOCK_A) throw new Error("fixture missing");
 		const { moduleCode, styles, scopeId } = compileSfc(BLOCK_A);
 		const css = rewriteScopedCssForMountRoot(styles[0]?.css ?? "", scopeId);
@@ -25,7 +25,7 @@ describe("scoped mount", () => {
 		mountPoint.setAttribute(scopeDataAttribute(scopeId), "");
 		document.body.appendChild(mountPoint);
 
-		const component = executeModule(moduleCode);
+		const component = await executeModule(moduleCode);
 		const app = createApp(component);
 		app.mount(mountPoint);
 
