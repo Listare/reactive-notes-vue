@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { emitBundle } from "../../bundler/emitBundle";
 import { executeModule } from "../executeModule";
-import { rewriteRuntimeStack } from "../stackTrace";
+import {
+	enhanceModuleLoadError,
+	rewriteRuntimeStack,
+} from "../stackTrace";
 
 describe("rewriteRuntimeStack", () => {
 	it("maps eval <anonymous> lines to vault file and block", async () => {
@@ -38,5 +41,24 @@ return { default: boom() }`,
 		const rewritten = rewriteRuntimeStack(rawStack, stackRegions)!;
 		expect(rewritten).toMatch(/note\.md:helper:\d+:\d+/);
 		expect(rewritten).not.toMatch(/<anonymous>:\d+:\d+/);
+	});
+
+	it("enhances SyntaxError when stack includes eval body line", () => {
+		const regions = [
+			{
+				vaultPath: "note.md",
+				blockName: "helper",
+				codeStartLine: 40,
+			},
+		];
+		const syntax = new SyntaxError("Unexpected token '{'");
+		syntax.stack = [
+			"SyntaxError: Unexpected token '{'",
+			"    at new Function (<anonymous>)",
+			"    at about:srcdoc:42:7",
+		].join("\n");
+
+		const enhanced = enhanceModuleLoadError(syntax, regions);
+		expect(enhanced.message).toMatch(/note\.md:helper:2:7/);
 	});
 });

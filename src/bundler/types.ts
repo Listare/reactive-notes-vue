@@ -15,6 +15,8 @@ export interface BundleResult {
 	moduleCode: string;
 	styles: CompiledStyle[];
 	stackRegions: StackCodeRegion[];
+	/** Normalized vault paths of all bundled local imports (transitive). */
+	vaultDependencies: string[];
 }
 
 export interface ModuleLoadRequest {

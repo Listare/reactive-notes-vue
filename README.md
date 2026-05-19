@@ -91,7 +91,9 @@ new Notice(`当前文件：${app.workspace.getActiveFile()?.path ?? "无"}`);
 
 非 JS 类语言的命名代码块（如 `yaml`、`json`）作为数据对象导入；`json` 会解析为对象。
 
-在 **设置 → Reactive Notes Vue** 配置自定义脚本路径（库内文件夹，如 `scripts`）。**仅当**代码中使用了 `@custom-script/` 导入时才会校验该路径；未使用时可不配置。路径无效或未配置却使用 `@custom-script/` 时会显示错误。
+在 **设置 → Reactive Notes Vue** 配置自定义脚本路径（库内文件夹，如 `scripts`；也可指向 `.obsidian/plugins/<插件-id>/scripts` 等与插件同目录的脚本）。**仅当**代码中使用了 `@custom-script/` 导入时才会校验该路径；未使用时可不配置。路径无效或未配置却使用 `@custom-script/` 时会显示错误。
+
+笔记中请写 `import X from '@custom-script/DistributionPanel.vue'`，不要写完整磁盘路径；`@custom-script/` 会拼在设置里的脚本根路径后面。
 
 ### 从 CDN 导入 ESM
 

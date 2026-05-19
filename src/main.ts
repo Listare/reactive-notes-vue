@@ -6,6 +6,7 @@ import {
 	registerVueInteractiveProcessor,
 	registerThemeSync,
 } from "./processor/registerVueInteractive";
+import { registerVaultImportWatch } from "./processor/registerVaultImportWatch";
 import { ReactiveNotesVueSettingTab } from "./ui/ReactiveNotesVueSettingTab";
 import { syncVueInteractiveTheme } from "./theme/syncVueInteractiveTheme";
 
@@ -17,6 +18,7 @@ export default class ReactiveNotesVuePlugin extends Plugin {
 		syncVueInteractiveTheme(this);
 		this.addSettingTab(new ReactiveNotesVueSettingTab(this.app, this));
 		registerVueInteractiveProcessor(this);
+		registerVaultImportWatch(this);
 		registerThemeSync(this);
 		registerCommands(this);
 	}

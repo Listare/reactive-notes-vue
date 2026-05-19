@@ -39,6 +39,7 @@ return { setup() { return () => null } }
 		expect(result.moduleCode).toContain("__moduleFactories__");
 		expect(result.moduleCode).toContain("notes/dep.js");
 		expect(result.moduleCode).not.toMatch(/import\s+.*from/);
+		expect(result.vaultDependencies).toEqual(["notes/dep.js"]);
 	});
 
 	it("does not require custom script path when @custom-script is unused", async () => {
@@ -152,5 +153,6 @@ return { setup() { return () => null } }
 
 		expect(result.moduleCode).toContain("__importUrl__");
 		expect(result.moduleCode).toContain(url);
+		expect(result.vaultDependencies).toEqual([]);
 	});
 });

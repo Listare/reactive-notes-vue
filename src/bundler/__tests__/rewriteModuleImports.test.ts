@@ -56,4 +56,15 @@ describe("rewriteModuleImports", () => {
 		expect(code).toContain('await __require__("notes/lib.js")');
 		expect(code).not.toContain("__importUrl__");
 	});
+
+	it("falls back to default for vault named-only imports (Vue block)", () => {
+		const { code } = rewriteModuleImports(
+			`import { DistributionPanel } from './15 - 复杂场景.md?block=panel'\nreturn {}`,
+			"test-vault/15 - 复杂场景.md",
+			ctx,
+		);
+		expect(code).toMatch(
+			/DistributionPanel.*\?\?.*__import_mod_\d+\.default/,
+		);
+	});
 });

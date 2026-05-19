@@ -26,3 +26,13 @@ export function setCachedCompile(
 export function invalidateVueInteractiveCaches(): void {
 	compileCache.clear();
 }
+
+/** Drops compile cache entries for one note (all vue-interactive blocks in that file). */
+export function invalidateCompileCacheForNote(sourcePath: string): void {
+	const prefix = `${sourcePath}\0`;
+	for (const key of [...compileCache.keys()]) {
+		if (key.startsWith(prefix)) {
+			compileCache.delete(key);
+		}
+	}
+}

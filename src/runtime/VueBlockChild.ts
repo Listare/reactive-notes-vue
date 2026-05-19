@@ -1,4 +1,5 @@
-import { MarkdownRenderChild } from "obsidian";
+import { MarkdownRenderChild, TFile } from "obsidian";
+import { invalidateCompileCacheForNote } from "../cache/vueInteractiveCaches";
 import { compileSfcWithImports } from "../compiler/compileSfcWithImports";
 import {
 	listVisibleVueInteractiveBlocks,
@@ -6,15 +7,23 @@ import {
 } from "../markdown/vueInteractiveFence";
 import { applyThemeToElement } from "../theme/applyVueInteractiveTheme";
 import { resolveEffectiveTheme } from "../theme/getTheme";
+import { parseModuleLoadErrorLocation } from "../ui/parseModuleLoadError";
 import { renderError } from "../ui/renderError";
+import { validateModuleSyntax } from "./validateModuleSyntax";
 import { renderLoadingPlaceholder } from "../ui/renderLoadingPlaceholder";
 import { SandboxFrame } from "./sandboxFrame";
 import { registerVueBlock } from "./vueBlockRegistry";
+import {
+	clearVueBlockVaultDependencies,
+	setVueBlockVaultDependencies,
+} from "./vueBlockDependencyIndex";
 import type ReactiveNotesVuePlugin from "../main";
 
 export class VueBlockChild extends MarkdownRenderChild {
 	private sandbox: SandboxFrame | null = null;
 	private visibleBlockIndex = -1;
+	private rendering = false;
+	private pendingVaultRefresh = false;
 
 	constructor(
 		containerEl: HTMLElement,
@@ -60,12 +69,29 @@ export class VueBlockChild extends MarkdownRenderChild {
 		return resolveEffectiveTheme(this.plugin.settings.darkMode);
 	}
 
+	/** Re-reads the host note and re-renders (e.g. after an imported file changes). */
+	async refreshFromVault(): Promise<void> {
+		if (this.rendering) {
+			this.pendingVaultRefresh = true;
+			return;
+		}
+		const file = this.plugin.app.vault.getAbstractFileByPath(this.sourcePath);
+		if (!(file instanceof TFile)) return;
+		const markdown = await this.plugin.app.vault.read(file);
+		const blocks = listVisibleVueInteractiveBlocks(markdown);
+		const source = this.resolveSourceForRefresh(blocks);
+		if (source == null) return;
+		invalidateCompileCacheForNote(this.sourcePath);
+		await this.render(source, markdown);
+	}
+
 	async render(source: string, markdownForIndex?: string): Promise<void> {
+		this.rendering = true;
 		this.lastSource = source;
 		if (markdownForIndex != null) {
 			this.rememberBlockIndex(source, markdownForIndex);
 		}
-		this.onunload();
+		this.teardownSandbox();
 		this.containerEl.empty();
 		this.containerEl.addClass("vue-interactive-root");
 		registerVueBlock(this.containerEl, this);
@@ -85,6 +111,8 @@ export class VueBlockChild extends MarkdownRenderChild {
 				settings: this.plugin.settings,
 				sourcePath: this.sourcePath,
 			});
+			setVueBlockVaultDependencies(this, compiled.vaultDependencies);
+			validateModuleSyntax(compiled.moduleCode, compiled.stackRegions);
 			const sandbox = new SandboxFrame(host, this.plugin.app);
 			this.sandbox = sandbox;
 			await sandbox.init();
@@ -98,16 +126,29 @@ export class VueBlockChild extends MarkdownRenderChild {
 					theme,
 				},
 				(error) => {
+					const loc = parseModuleLoadErrorLocation(error.message);
 					renderError(runtimeErrorHost, error.message, {
 						stack: error.stack,
+						loc,
 						title: "运行时错误",
 					});
 				},
 			);
 			placeholder.remove();
 		} catch (e) {
+			clearVueBlockVaultDependencies(this);
 			const err = e instanceof Error ? e : new Error(String(e));
-			renderError(this.containerEl, err.message, { stack: err.stack });
+			const loc = parseModuleLoadErrorLocation(err.message);
+			renderError(this.containerEl, err.message, {
+				stack: err.stack,
+				loc,
+			});
+		} finally {
+			this.rendering = false;
+			if (this.pendingVaultRefresh) {
+				this.pendingVaultRefresh = false;
+				await this.refreshFromVault();
+			}
 		}
 	}
 
@@ -121,9 +162,14 @@ export class VueBlockChild extends MarkdownRenderChild {
 		this.sandbox?.setTheme(this.currentTheme());
 	}
 
-	onunload(): void {
+	private teardownSandbox(): void {
 		this.sandbox?.unmount();
 		this.sandbox = null;
+	}
+
+	onunload(): void {
+		clearVueBlockVaultDependencies(this);
+		this.teardownSandbox();
 		this.containerEl.empty();
 	}
 }

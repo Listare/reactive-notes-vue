@@ -9,7 +9,7 @@ import { createGetThemeSandboxModule } from "./getThemeSandboxModule";
 import { createMathSandboxModule } from "./mathSandboxModule";
 import { createObsidianSandboxModule } from "./obsidian/proxyClient";
 import { executeModule } from "./executeModule";
-import { rewriteRuntimeStack } from "./stackTrace";
+import { enhanceModuleLoadError, rewriteRuntimeStack } from "./stackTrace";
 import type { StackCodeRegion } from "./stackTrace";
 import type {
 	SandboxInbound,
@@ -141,6 +141,7 @@ async function handleRender(
 		obsidian,
 		createGetThemeSandboxModule(getTheme),
 		createMathSandboxModule(),
+		msg.stackRegions,
 	);
 	const mountEl = ensureMountElement();
 	applyScopeRoot(mountEl, msg.scopeId);
@@ -175,7 +176,7 @@ window.addEventListener("message", (event: MessageEvent) => {
 	if (data.type === "vue-sandbox-render") {
 		void handleRender(data).catch((e) => {
 			clearMount();
-			const err = e instanceof Error ? e : new Error(String(e));
+			const err = enhanceModuleLoadError(e, data.stackRegions);
 			post({
 				type: "vue-sandbox-error",
 				requestId: data.requestId,

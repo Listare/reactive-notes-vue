@@ -49,8 +49,14 @@ function rewriteNamedBinding(binding: string): string {
 		.join(", ");
 }
 
-/** Per-binding import for CDN modules that only export `default` (e.g. esm.sh subpaths). */
-function rewriteUrlNamedBindings(named: string, modVar: string): string {
+/**
+ * Per-binding named import when the module may only export `default`
+ * (Vue SFC / `?block=` fences, esm.sh subpaths, etc.).
+ */
+function rewriteNamedBindingsWithDefaultFallback(
+	named: string,
+	modVar: string,
+): string {
 	return named
 		.split(",")
 		.map((part) => {
@@ -124,10 +130,12 @@ export function rewriteModuleImports(
 			}
 			const named = namedOnly ?? namedWithDefault;
 			if (named) {
-				if (isUrlImportSpecifier(spec) && !def) {
-					const modVar = `__url_mod_${dependencyIds.length}`;
+				if (!def) {
+					const modVar = `__import_mod_${dependencyIds.length}`;
 					bindings.unshift(`const ${modVar} = ${req};`);
-					bindings.push(rewriteUrlNamedBindings(named, modVar));
+					bindings.push(
+						rewriteNamedBindingsWithDefaultFallback(named, modVar),
+					);
 				} else {
 					const props = rewriteNamedBinding(named);
 					bindings.push(`const { ${props} } = ${req};`);

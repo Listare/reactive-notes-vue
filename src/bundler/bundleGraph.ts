@@ -4,6 +4,7 @@ import type {
 	ModuleLoader,
 } from "./types";
 import { collectImportsFromCode } from "./collectImports";
+import { collectVaultDependencies } from "./collectVaultDependencies";
 import { emitBundle } from "./emitBundle";
 import { parseImportSpecifier } from "../resolver/parseImportSpecifier";
 import {
@@ -136,10 +137,19 @@ export async function bundleGraph(
 		throw new BundleError(msg);
 	}
 
+	const recordList = [...records.values()];
 	const { moduleCode, stackRegions } = emitBundle(
-		[...records.values()],
+		recordList,
 		entry.canonicalId,
 		ctx,
 	);
-	return { moduleCode, styles: allStyles, stackRegions };
+	return {
+		moduleCode,
+		styles: allStyles,
+		stackRegions,
+		vaultDependencies: collectVaultDependencies(
+			recordList,
+			entry.canonicalId,
+		),
+	};
 }

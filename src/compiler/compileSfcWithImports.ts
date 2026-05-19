@@ -11,7 +11,6 @@ import { compileSfc } from "./compileSfc";
 import { createVaultModuleLoader } from "../vault/vaultModuleLoader";
 import type { ReactiveNotesVueSettings } from "../settings";
 import { normalizeCustomScriptPath } from "../settings/normalizeCustomScriptPath";
-import { transpileTypeScript } from "../bundler/transpile";
 import { singleModuleStackRegion } from "../runtime/stackTrace";
 
 export interface CompileBlockContext {
@@ -46,10 +45,7 @@ export async function compileSfcWithImports(
 
 	const compiled = compileSfc(rawSource, { bundleImports: false });
 	const imports = collectImportsFromSfc(rawSource);
-	const moduleCode = transpileTypeScript(
-		compiled.moduleCode,
-		`${ctx.sourcePath}.vue-interactive.ts`,
-	);
+	const moduleCode = compiled.moduleCode;
 
 	let result: CompileSfcResult;
 
@@ -60,6 +56,7 @@ export async function compileSfcWithImports(
 			stackRegions: [
 				singleModuleStackRegion(ctx.sourcePath, entryCanonicalId(ctx.sourcePath)),
 			],
+			vaultDependencies: [],
 		};
 	} else {
 		const entryId = entryCanonicalId(ctx.sourcePath);
@@ -80,6 +77,7 @@ export async function compileSfcWithImports(
 			moduleCode: bundled.moduleCode,
 			styles: bundled.styles,
 			stackRegions: bundled.stackRegions,
+			vaultDependencies: bundled.vaultDependencies,
 		};
 	}
 

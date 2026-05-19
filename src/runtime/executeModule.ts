@@ -3,6 +3,11 @@ import type { Component } from "vue";
 import type { GetThemeSandboxModule } from "./getThemeSandboxModule";
 import type { MathSandboxModule } from "./mathSandboxModule";
 import type { ObsidianSandboxModule } from "./obsidian/proxyClient";
+import { buildModuleLoadBody } from "./moduleLoadBody";
+import {
+	enhanceModuleLoadError,
+	type StackCodeRegion,
+} from "./stackTrace";
 
 type UrlModule = Record<string, unknown>;
 
@@ -38,24 +43,30 @@ export async function executeModule(
 	obsidian: ObsidianSandboxModule = EMPTY_OBSIDIAN,
 	getThemeModule: GetThemeSandboxModule = EMPTY_GET_THEME,
 	mathModule: MathSandboxModule = EMPTY_MATH,
+	stackRegions?: StackCodeRegion[],
 ): Promise<Component> {
 	const importUrl = await createImportUrl();
-	// Runs inside sandbox iframe only; strict mode + injected helpers limit globals.
-	// eslint-disable-next-line @typescript-eslint/no-implied-eval
-	const fn = new Function(
-		"__vue__",
-		"__importUrl__",
-		"__obsidian__",
-		"__getTheme__",
-		"__math__",
-		`"use strict";\n${moduleCode}`,
-	) as (
+	let fn: (
 		vue: typeof Vue,
 		importUrl: (url: string) => Promise<UrlModule>,
 		obsidianModule: ObsidianSandboxModule,
 		getThemeModuleArg: GetThemeSandboxModule,
 		mathModuleArg: MathSandboxModule,
 	) => Promise<Component>;
+	try {
+		// Runs inside sandbox iframe only; strict mode + injected helpers limit globals.
+		// eslint-disable-next-line @typescript-eslint/no-implied-eval
+		fn = new Function(
+			"__vue__",
+			"__importUrl__",
+			"__obsidian__",
+			"__getTheme__",
+			"__math__",
+			buildModuleLoadBody(moduleCode),
+		) as typeof fn;
+	} catch (e) {
+		throw enhanceModuleLoadError(e, stackRegions);
+	}
 	const result = await fn(
 		Vue,
 		importUrl,

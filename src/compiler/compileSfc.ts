@@ -5,6 +5,8 @@ import {
 	compileStyle,
 	type SFCDescriptor,
 } from "vue/compiler-sfc";
+import { toTranspilePath } from "../bundler/prepareScriptModule";
+import { transpileTypeScript } from "../bundler/transpile";
 import { normalizeSfc } from "./normalizeSfc";
 import { assembleModule } from "./assembleModule";
 import { hashScopeId } from "../utils/hashScopeId";
@@ -21,6 +23,8 @@ export interface CompileSfcResult {
 	moduleCode: string;
 	styles: CompiledStyle[];
 	stackRegions: StackCodeRegion[];
+	/** Vault paths of bundled local imports; empty when there are no imports. */
+	vaultDependencies: string[];
 }
 
 export interface CompileSfcError {
@@ -113,10 +117,13 @@ function compileDescriptor(
 		throw new Error(`模板编译失败: ${msg}`);
 	}
 
-	const moduleCode = assembleModule({
-		scriptContent: scriptResult.content,
-		templateCode: templateResult.code,
-	});
+	const moduleCode = transpileTypeScript(
+		assembleModule({
+			scriptContent: scriptResult.content,
+			templateCode: templateResult.code,
+		}),
+		toTranspilePath("block.vue"),
+	);
 
 	const styles = compileStyles(descriptor, scopeId);
 
@@ -125,6 +132,7 @@ function compileDescriptor(
 		moduleCode,
 		styles,
 		stackRegions: [],
+		vaultDependencies: [],
 	};
 }
 

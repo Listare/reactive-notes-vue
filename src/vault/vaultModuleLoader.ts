@@ -1,12 +1,12 @@
-import { App, TFile, TFolder } from "obsidian";
-import { normalizeVaultPath } from "../utils/posixPath";
+import { App } from "obsidian";
+import {
+	getVaultResourceUrl,
+	readVaultText,
+	vaultPathExists,
+} from "./vaultFileAccess";
 import { compileSfc } from "../compiler/compileSfc";
 import { collectImportsFromCode, collectImportsFromSfc } from "../bundler/collectImports";
-import {
-	prepareScriptModule,
-	toTranspilePath,
-} from "../bundler/prepareScriptModule";
-import { transpileTypeScript } from "../bundler/transpile";
+import { prepareScriptModule } from "../bundler/prepareScriptModule";
 import type {
 	LoadedModuleSource,
 	ModuleLoadRequest,
@@ -39,13 +39,7 @@ export function createVaultModuleLoader(
 	app: App,
 	ctx: ResolvePathContext,
 ): ModuleLoader {
-	const readText = async (path: string): Promise<string> => {
-		const file = app.vault.getAbstractFileByPath(path);
-		if (!(file instanceof TFile)) {
-			throw new Error(`找不到文件: ${path}`);
-		}
-		return app.vault.read(file);
-	};
+	const readText = (path: string) => readVaultText(app, path);
 
 	const loadModule = async (
 		request: ModuleLoadRequest,
@@ -71,11 +65,10 @@ export function createVaultModuleLoader(
 		}
 
 		if (BINARY_RESOURCE_EXT.test(lower)) {
-			const file = app.vault.getAbstractFileByPath(vaultPath);
-			if (!(file instanceof TFile)) {
+			const url = await getVaultResourceUrl(app, vaultPath);
+			if (!url) {
 				throw new Error(`找不到资源文件: ${vaultPath}`);
 			}
-			const url = app.vault.getResourcePath(file);
 			return {
 				canonicalId: id,
 				vaultPath,
@@ -108,10 +101,9 @@ export function createVaultModuleLoader(
 					const compiled = compileSfc(extracted.content, {
 						bundleImports: false,
 					});
-					let code = compiled.moduleCode.includes("return ")
+					const code = compiled.moduleCode.includes("return ")
 						? compiled.moduleCode
 						: `return ${compiled.moduleCode}`;
-					code = transpileTypeScript(code, toTranspilePath(virtualPath));
 					return {
 						canonicalId: id,
 						vaultPath,
@@ -212,12 +204,6 @@ export function createVaultModuleLoader(
 
 	return {
 		loadModule,
-		fileExists: async (path: string) => {
-			const entry = app.vault.getAbstractFileByPath(
-				normalizeVaultPath(path),
-			);
-			// Script root is a folder; imported targets are files.
-			return entry instanceof TFile || entry instanceof TFolder;
-		},
+		fileExists: (path: string) => vaultPathExists(app, path),
 	};
 }

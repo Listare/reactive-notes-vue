@@ -14,6 +14,10 @@ export function collectImportsFromCode(code: string): string[] {
 	let match: RegExpExecArray | null;
 	STATIC_IMPORT_RE.lastIndex = 0;
 	while ((match = STATIC_IMPORT_RE.exec(code)) !== null) {
+		const line = match[0];
+		if (/^\s*import\s+type\s+/i.test(line)) {
+			continue;
+		}
 		const spec = match[1];
 		if (
 			spec &&
