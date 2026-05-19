@@ -1,17 +1,20 @@
 import { Plugin } from "obsidian";
 import { DEFAULT_SETTINGS, type ReactiveNotesVueSettings } from "./settings";
+import { normalizeDarkModePreference } from "./settings/darkMode";
 import { registerCommands } from "./commands/registerCommands";
 import {
 	registerVueInteractiveProcessor,
 	registerThemeSync,
 } from "./processor/registerVueInteractive";
 import { ReactiveNotesVueSettingTab } from "./ui/ReactiveNotesVueSettingTab";
+import { syncVueInteractiveTheme } from "./theme/syncVueInteractiveTheme";
 
 export default class ReactiveNotesVuePlugin extends Plugin {
 	settings: ReactiveNotesVueSettings = DEFAULT_SETTINGS;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
+		syncVueInteractiveTheme(this);
 		this.addSettingTab(new ReactiveNotesVueSettingTab(this.app, this));
 		registerVueInteractiveProcessor(this);
 		registerThemeSync(this);
@@ -21,11 +24,11 @@ export default class ReactiveNotesVuePlugin extends Plugin {
 	onunload(): void {}
 
 	async loadSettings(): Promise<void> {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			(await this.loadData()) as Partial<ReactiveNotesVueSettings>,
-		);
+		const data =
+			((await this.loadData()) as Partial<ReactiveNotesVueSettings> | null) ??
+			{};
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
+		this.settings.darkMode = normalizeDarkModePreference(data.darkMode);
 	}
 
 	async saveSettings(): Promise<void> {

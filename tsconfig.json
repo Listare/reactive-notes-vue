@@ -4,6 +4,9 @@
 		"paths": {
 			"@sandbox-runner-script": [
 				"runtime/sandboxRunnerPlaceholder.ts"
+			],
+			"@sandbox-tailwind-css": [
+				"runtime/sandboxTailwindPlaceholder.ts"
 			]
 		},
 		"inlineSourceMap": true,

@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+/* Tailwind `dark:` — same as ReactiveNotes: `.dark` on the block root. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@source "../../src/**/*.{ts,html}";
+@source "../../test-vault/**/*.{md,vue,html}";
+
+/* Common utilities used in notes/examples (vault content is not scanned at build time). */
+@source inline("{hover:,focus:,}bg-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,{100..900},950}");
+@source inline("{hover:,focus:,}text-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,{100..900},950}");
+@source inline("{hover:,focus:,}border-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,{100..900},950}");
+@source inline("{hover:,}underline line-through");
+@source inline("flex flex-col flex-row flex-wrap inline-flex grid grid-cols-{1..12} grid-rows-{1..6} gap-{0..16} gap-x-{0..16} gap-y-{0..16}");
+@source inline("items-{start,end,center,baseline,stretch} justify-{start,end,center,between,around,evenly}");
+@source inline("p-{0..16} px-{0..16} py-{0..16} pt-{0..16} pr-{0..16} pb-{0..16} pl-{0..16} m-{0..16} mx-{0..16} my-{0..16} mt-{0..16} mr-{0..16} mb-{0..16} ml-{0..16}");
+@source inline("w-{full,auto,1/2,1/3,2/3,1/4,3/4} h-{full,auto} min-h-{0,screen} max-w-{none,xs,sm,md,lg,xl,2xl,full}");
+@source inline("text-{xs,sm,base,lg,xl,2xl,3xl,4xl} font-{thin,light,normal,medium,semibold,bold} text-{left,center,right,justify}");
+@source inline("rounded-{none,sm,md,lg,xl,2xl,full} border border-{0,2,4} shadow-{sm,md,lg,xl}");
+@source inline("opacity-{0,25,50,75,100} overflow-{auto,hidden,visible,scroll}");
+@source inline("hidden block inline-block inline");
+@source inline("{dark:,dark:hover:,dark:focus:,}bg-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,{100..900},950}");
+@source inline("{dark:,dark:hover:,dark:focus:,}text-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,{100..900},950}");
+@source inline("{dark:,dark:hover:,dark:focus:,}border-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,{100..900},950}");

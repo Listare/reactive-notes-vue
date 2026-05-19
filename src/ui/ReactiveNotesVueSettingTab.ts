@@ -1,6 +1,11 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type ReactiveNotesVuePlugin from "../main";
+import {
+	DARK_MODE_OPTIONS,
+	type DarkModePreference,
+} from "../settings/darkMode";
 import { normalizeCustomScriptPath } from "../settings/normalizeCustomScriptPath";
+import { applyVueInteractiveThemeSync } from "../theme/registerObsidianThemeSync";
 
 export class ReactiveNotesVueSettingTab extends PluginSettingTab {
 	constructor(
@@ -17,6 +22,23 @@ export class ReactiveNotesVueSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Reactive Notes Vue")
 			.setHeading();
+
+		new Setting(containerEl)
+			.setName("暗色模式")
+			.setDesc(
+				"控制 vue-interactive 块与 Tailwind dark: 变体。默认跟随 Obsidian 主题。",
+			)
+			.addDropdown((dropdown) => {
+				for (const opt of DARK_MODE_OPTIONS) {
+					dropdown.addOption(opt.value, opt.label);
+				}
+				dropdown.setValue(this.plugin.settings.darkMode);
+				dropdown.onChange(async (value) => {
+					this.plugin.settings.darkMode = value as DarkModePreference;
+					await this.plugin.saveSettings();
+					applyVueInteractiveThemeSync(this.plugin);
+				});
+			});
 
 		new Setting(containerEl)
 			.setName("自定义脚本路径")

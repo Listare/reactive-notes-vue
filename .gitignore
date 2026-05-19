@@ -11,6 +11,7 @@ node_modules
 # Don't include compiled bundles in the repo (upload via GitHub releases).
 main.js
 sandbox-runner.js
+sandbox-tailwind.css
 
 # Exclude sourcemaps
 *.map

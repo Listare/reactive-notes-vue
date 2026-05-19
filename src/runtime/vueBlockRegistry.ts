@@ -14,3 +14,14 @@ export function getVueBlock(
 ): VueBlockChild | undefined {
 	return blocksByContainer.get(containerEl);
 }
+
+export function forEachVueBlock(
+	fn: (child: VueBlockChild) => void,
+): void {
+	for (const el of Array.from(
+		document.querySelectorAll(".vue-interactive-root"),
+	)) {
+		const child = getVueBlock(el as HTMLElement);
+		if (child) fn(child);
+	}
+}

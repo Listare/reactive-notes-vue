@@ -3,6 +3,7 @@ import type ReactiveNotesVuePlugin from "../main";
 import { findVueInteractiveBlockByContent } from "../markdown/findVueInteractiveBlockByContent";
 import { VueBlockChild } from "../runtime/VueBlockChild";
 import { registerVueBlock } from "../runtime/vueBlockRegistry";
+import { registerObsidianThemeSync } from "../theme/registerObsidianThemeSync";
 
 export function registerVueInteractiveProcessor(
 	plugin: ReactiveNotesVuePlugin,
@@ -41,16 +42,4 @@ async function renderVueInteractiveBlock(
 	await child.render(source, markdown);
 }
 
-export function registerThemeSync(plugin: ReactiveNotesVuePlugin): void {
-	plugin.registerEvent(
-		plugin.app.workspace.on("css-change", () => {
-			document.querySelectorAll(".vue-interactive-root").forEach((node) => {
-				if (document.body.classList.contains("theme-dark")) {
-					node.classList.add("theme-dark");
-				} else {
-					node.classList.remove("theme-dark");
-				}
-			});
-		}),
-	);
-}
+export { registerObsidianThemeSync as registerThemeSync };

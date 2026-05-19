@@ -1,4 +1,5 @@
 import type { StackCodeRegion } from "./stackTrace";
+import type { VueInteractiveTheme } from "../theme/getTheme";
 
 export type SandboxStyleChunk = {
 	css: string;
@@ -14,10 +15,14 @@ export type SandboxInbound =
 			stackRegions: StackCodeRegion[];
 			styles: SandboxStyleChunk[];
 			scopeId: string;
-			themeDark: boolean;
-			themeCss: string;
+			theme: VueInteractiveTheme;
 	  }
-	| { type: "vue-sandbox-unmount"; requestId: string };
+	| { type: "vue-sandbox-unmount"; requestId: string }
+	| {
+			type: "vue-sandbox-theme";
+			requestId: string;
+			theme: VueInteractiveTheme;
+	  };
 
 /** Sandbox iframe → parent */
 export type SandboxOutbound =

@@ -103,6 +103,23 @@ import { debounce } from "https://esm.sh/lodash-es@4.17.21/debounce";
 
 URL 中的查询参数会原样保留（例如 `https://esm.sh/vue?target=esnext`）。CDN 模块在沙盒 iframe 内通过原生 `import()` 加载。
 
+### Tailwind CSS
+
+`vue-interactive` 沙盒内已内置 [Tailwind CSS v4](https://tailwindcss.com/)，可在 `<template>` 中直接使用工具类（如 `flex`、`p-4`、`dark:bg-slate-800`）。`dark:` 依赖容器上的 `.dark` 类（与 [ReactiveNotes](https://github.com/Prodigist/ReactiveNotes) 相同）。
+
+构建时会扫描 `src/` 与 `test-vault/` 中的类名，并对常用工具类做 safelist；笔记里若使用未收录的类名，可能需在 `src/styles/sandbox.css` 中补充 `@source inline(...)` 后重新 `pnpm run build`。
+
+### 主题：`getTheme()` 与暗色模式
+
+在 `<script setup>` 中可调用 **`getTheme()`**，返回 `'dark' | 'light'`（与 ReactiveNotes 一致，基于 `document.body.hasClass('theme-dark')`）。在 `computed` 或模板中使用会在主题切换时自动更新。
+
+在 **设置 → Reactive Notes Vue → 暗色模式** 可选择：
+
+- **跟随 Obsidian**（默认）：与 Obsidian 外观同步
+- **亮色** / **暗色**：强制固定
+
+手测用例见 test-vault 中的 [[12 - 主题与 Tailwind]]。
+
 ## 架构
 
 | 目录 | 职责 |

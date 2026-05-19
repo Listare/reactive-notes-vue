@@ -6,6 +6,7 @@
 	"type": "module",
 	"packageManager": "pnpm@9.15.9",
 	"scripts": {
+		"build:styles": "node scripts/build-styles.mjs",
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"sync-vault": "node scripts/sync-test-vault.mjs",
@@ -23,12 +24,14 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "9.30.1",
+		"@tailwindcss/cli": "^4.3.0",
 		"@types/node": "^16.11.6",
 		"esbuild": "0.25.5",
 		"eslint-plugin-obsidianmd": "0.1.9",
 		"globals": "14.0.0",
 		"jiti": "2.6.1",
 		"jsdom": "^26.0.0",
+		"tailwindcss": "^4.3.0",
 		"tslib": "2.4.0",
 		"typescript": "^5.8.3",
 		"typescript-eslint": "8.35.1",

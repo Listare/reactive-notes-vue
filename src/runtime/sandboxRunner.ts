@@ -1,9 +1,10 @@
 /**
  * Bundled to sandbox-runner.js (IIFE). Runs inside a sandboxed iframe (allow-scripts only).
  */
-import { createApp, type App as VueApp, type Component } from "vue";
+import { createApp, ref, type App as VueApp, type Component, type Ref } from "vue";
 import { rewriteScopedCssForMountRoot, scopeDataAttribute } from "../compiler/rewriteScopedCss";
-import { buildThemeVariablesCss } from "./themeVariables";
+import { applyThemeToElement } from "../theme/applyVueInteractiveTheme";
+import type { VueInteractiveTheme } from "../theme/getTheme";
 import { createObsidianSandboxModule } from "./obsidian/proxyClient";
 import { executeModule } from "./executeModule";
 import { rewriteRuntimeStack } from "./stackTrace";
@@ -17,8 +18,14 @@ let vueApp: VueApp | null = null;
 const styleEls: HTMLStyleElement[] = [];
 let resizeObserver: ResizeObserver | null = null;
 let obsidianPort: MessagePort | null = null;
+const themeRef: Ref<VueInteractiveTheme> = ref("light");
+
 function post(message: SandboxOutbound): void {
 	parent.postMessage(message, "*");
+}
+
+function getTheme(): VueInteractiveTheme {
+	return themeRef.value;
 }
 
 function ensureMountElement(): HTMLElement {
@@ -46,15 +53,6 @@ function clearMount(): void {
 	}
 }
 
-function injectThemeVariables(themeCss: string): void {
-	if (!themeCss) return;
-	const el = document.createElement("style");
-	el.setAttribute("data-vue-interactive", "theme-vars");
-	el.textContent = themeCss;
-	document.head.appendChild(el);
-	styleEls.push(el);
-}
-
 function injectStyles(styles: SandboxStyleChunk[], scopeId: string): void {
 	for (const style of styles) {
 		const el = document.createElement("style");
@@ -72,8 +70,17 @@ function applyScopeRoot(mountEl: HTMLElement, scopeId: string): void {
 	mountEl.setAttribute(scopeDataAttribute(scopeId), "");
 }
 
-function applyTheme(themeDark: boolean): void {
-	document.body.classList.toggle("theme-dark", themeDark);
+function applySandboxTheme(theme: VueInteractiveTheme): void {
+	themeRef.value = theme;
+	for (const el of [
+		document.documentElement,
+		document.body,
+		document.getElementById("vue-interactive-mount"),
+	]) {
+		if (el instanceof HTMLElement) {
+			applyThemeToElement(el, theme);
+		}
+	}
 }
 
 function reportResize(requestId: string): void {
@@ -94,16 +101,20 @@ async function handleRender(
 	msg: Extract<SandboxInbound, { type: "vue-sandbox-render" }>,
 ): Promise<void> {
 	clearMount();
-	applyTheme(msg.themeDark);
-	injectThemeVariables(msg.themeCss);
+	applySandboxTheme(msg.theme);
 	injectStyles(msg.styles, msg.scopeId);
 	if (!obsidianPort) {
 		throw new Error("Obsidian API 桥接未就绪。");
 	}
 	const obsidian = createObsidianSandboxModule(obsidianPort);
-	const component: Component = await executeModule(msg.moduleCode, obsidian);
+	const component: Component = await executeModule(
+		msg.moduleCode,
+		obsidian,
+		getTheme,
+	);
 	const mountEl = ensureMountElement();
 	applyScopeRoot(mountEl, msg.scopeId);
+	applySandboxTheme(msg.theme);
 	vueApp = createApp(component);
 	vueApp.mount(mountEl);
 	post({ type: "vue-sandbox-rendered", requestId: msg.requestId });
@@ -139,6 +150,11 @@ window.addEventListener("message", (event: MessageEvent) => {
 		resizeObserver?.disconnect();
 		resizeObserver = null;
 		clearMount();
+		return;
+	}
+
+	if (data.type === "vue-sandbox-theme") {
+		applySandboxTheme(data.theme);
 	}
 });
 

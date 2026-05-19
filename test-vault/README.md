@@ -25,6 +25,7 @@
 | [[09 - 错误-递归过深]] | 栈溢出错误面板 |
 | [[10 - CDN导入]] | `https://` ESM CDN（esm.sh，需联网） |
 | [[11 - Obsidian API]] | 内置 `@obsidian`（`app.vault`、`Notice`） |
+| [[12 - 主题与 Tailwind]] | Obsidian 主题变量、Tailwind `dark:`、暗色模式设置 |
 
 ## 插件文件
 

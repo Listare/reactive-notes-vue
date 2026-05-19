@@ -4,9 +4,11 @@ import {
 	listVisibleVueInteractiveBlocks,
 	type VueInteractiveBlockInfo,
 } from "../markdown/vueInteractiveFence";
-import { SandboxFrame } from "./sandboxFrame";
-import { buildThemeVariablesCss } from "./themeVariables";
+import { applyThemeToElement } from "../theme/applyVueInteractiveTheme";
+import { resolveEffectiveTheme } from "../theme/getTheme";
 import { renderError } from "../ui/renderError";
+import { SandboxFrame } from "./sandboxFrame";
+import { registerVueBlock } from "./vueBlockRegistry";
 import type ReactiveNotesVuePlugin from "../main";
 
 export class VueBlockChild extends MarkdownRenderChild {
@@ -53,6 +55,10 @@ export class VueBlockChild extends MarkdownRenderChild {
 		this.visibleBlockIndex = -1;
 	}
 
+	private currentTheme() {
+		return resolveEffectiveTheme(this.plugin.settings.darkMode);
+	}
+
 	async render(source: string, markdownForIndex?: string): Promise<void> {
 		this.lastSource = source;
 		if (markdownForIndex != null) {
@@ -61,6 +67,7 @@ export class VueBlockChild extends MarkdownRenderChild {
 		this.onunload();
 		this.containerEl.empty();
 		this.containerEl.addClass("vue-interactive-root");
+		registerVueBlock(this.containerEl, this);
 		this.applyThemeClass();
 
 		const host = this.containerEl.createDiv({
@@ -76,13 +83,13 @@ export class VueBlockChild extends MarkdownRenderChild {
 			const sandbox = new SandboxFrame(host, this.plugin.app);
 			this.sandbox = sandbox;
 			await sandbox.init();
+			const theme = this.currentTheme();
 			await sandbox.renderInSandbox({
 				moduleCode: compiled.moduleCode,
 				stackRegions: compiled.stackRegions,
 				styles: compiled.styles,
 				scopeId: compiled.scopeId,
-				themeDark: document.body.classList.contains("theme-dark"),
-				themeCss: buildThemeVariablesCss(),
+				theme,
 			});
 		} catch (e) {
 			const err = e instanceof Error ? e : new Error(String(e));
@@ -90,12 +97,14 @@ export class VueBlockChild extends MarkdownRenderChild {
 		}
 	}
 
-	private applyThemeClass(): void {
-		if (document.body.classList.contains("theme-dark")) {
-			this.containerEl.addClass("theme-dark");
-		} else {
-			this.containerEl.removeClass("theme-dark");
-		}
+	applyThemeClass(): void {
+		applyThemeToElement(this.containerEl, this.currentTheme());
+	}
+
+	/** Re-applies theme on the host and live sandbox without recompiling. */
+	syncTheme(): void {
+		this.applyThemeClass();
+		this.sandbox?.setTheme(this.currentTheme());
 	}
 
 	onunload(): void {

@@ -2,6 +2,7 @@ import esbuild from "esbuild";
 import { readFileSync } from "node:fs";
 import process from "process";
 import { builtinModules } from "node:module";
+import { buildSandboxTailwind } from "./scripts/build-styles.mjs";
 import { syncTestVault } from "./scripts/sync-test-vault.mjs";
 
 const banner = `/*
@@ -12,6 +13,7 @@ if you want to view the source, please visit the github repository of this plugi
 
 const prod = process.argv[2] === "production";
 const SANDBOX_RUNNER_OUT = "sandbox-runner.js";
+const SANDBOX_TAILWIND_OUT = "sandbox-tailwind.css";
 
 const nodeBuiltinShims = {
 	path: "export default {}",
@@ -42,6 +44,7 @@ const defineEnv = {
 };
 
 let sandboxRunnerCode = "";
+let sandboxTailwindCss = "";
 
 function sandboxInlinePlugin() {
 	return {
@@ -58,12 +61,24 @@ function sandboxInlinePlugin() {
 					loader: "js",
 				}),
 			);
+			build.onResolve({ filter: /^@sandbox-tailwind-css$/ }, () => ({
+				path: "index",
+				namespace: "sandbox-tailwind-inline",
+			}));
+			build.onLoad(
+				{ filter: /.*/, namespace: "sandbox-tailwind-inline" },
+				() => ({
+					contents: `export const SANDBOX_TAILWIND_CSS = ${JSON.stringify(sandboxTailwindCss)};`,
+					loader: "js",
+				}),
+			);
 		},
 	};
 }
 
-function readSandboxRunnerFromDisk() {
+function readSandboxArtifactsFromDisk() {
 	sandboxRunnerCode = readFileSync(SANDBOX_RUNNER_OUT, "utf8");
+	sandboxTailwindCss = readFileSync(SANDBOX_TAILWIND_OUT, "utf8");
 }
 
 function syncVaultPlugin() {
@@ -130,7 +145,7 @@ const runnerContext = await esbuild.context({
 			setup(build) {
 				build.onEnd(async (result) => {
 					if (result.errors.length > 0) return;
-					readSandboxRunnerFromDisk();
+					readSandboxArtifactsFromDisk();
 					await pluginContext.rebuild();
 				});
 			},
@@ -139,8 +154,9 @@ const runnerContext = await esbuild.context({
 });
 
 async function buildAll() {
+	buildSandboxTailwind({ minify: prod });
 	await runnerContext.rebuild();
-	readSandboxRunnerFromDisk();
+	readSandboxArtifactsFromDisk();
 	await pluginContext.rebuild();
 }
 

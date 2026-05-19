@@ -2,12 +2,13 @@ import type { App } from "obsidian";
 import { ObsidianBridgeSession } from "./obsidian/ObsidianBridgeSession";
 import { buildSandboxSrcdoc } from "./sandboxSrcdoc";
 import { getSandboxRunnerScript } from "./sandboxRunnerBundle";
-import { buildThemeVariablesCss } from "./themeVariables";
+import { getSandboxTailwindCss } from "./sandboxTailwindBundle";
 import type {
 	SandboxInbound,
 	SandboxOutbound,
 	SandboxStyleChunk,
 } from "./sandboxProtocol";
+import type { VueInteractiveTheme } from "../theme/getTheme";
 import type { StackCodeRegion } from "./stackTrace";
 
 export class SandboxFrame {
@@ -39,7 +40,10 @@ export class SandboxFrame {
 		iframe.style.border = "none";
 		iframe.style.width = "100%";
 		iframe.style.display = "block";
-		iframe.srcdoc = buildSandboxSrcdoc(runnerScript);
+		iframe.srcdoc = buildSandboxSrcdoc(
+			runnerScript,
+			getSandboxTailwindCss(),
+		);
 
 		this.iframe = iframe;
 		this.container.appendChild(iframe);
@@ -86,8 +90,7 @@ export class SandboxFrame {
 		stackRegions: StackCodeRegion[];
 		styles: SandboxStyleChunk[];
 		scopeId: string;
-		themeDark: boolean;
-		themeCss: string;
+		theme: VueInteractiveTheme;
 	}): Promise<void> {
 		return this.postRender(options);
 	}
@@ -97,8 +100,7 @@ export class SandboxFrame {
 		stackRegions: StackCodeRegion[];
 		styles: SandboxStyleChunk[];
 		scopeId: string;
-		themeDark: boolean;
-		themeCss: string;
+		theme: VueInteractiveTheme;
 	}): Promise<void> {
 		const iframe = this.iframe;
 		const targetWindow = iframe?.contentWindow;
@@ -114,8 +116,7 @@ export class SandboxFrame {
 			stackRegions: options.stackRegions,
 			styles: options.styles,
 			scopeId: options.scopeId,
-			themeDark: options.themeDark,
-			themeCss: options.themeCss,
+			theme: options.theme,
 		};
 
 		return new Promise((resolve, reject) => {
@@ -161,6 +162,20 @@ export class SandboxFrame {
 			}
 			targetWindow.postMessage(message, "*", transfer);
 		});
+	}
+
+	setTheme(theme: VueInteractiveTheme): void {
+		const targetWindow = this.iframe?.contentWindow;
+		if (!targetWindow) return;
+		const requestId = `t${++this.requestCounter}`;
+		targetWindow.postMessage(
+			{
+				type: "vue-sandbox-theme",
+				requestId,
+				theme,
+			} satisfies SandboxInbound,
+			"*",
+		);
 	}
 
 	unmount(): void {
