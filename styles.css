@@ -6,6 +6,9 @@
 .vue-interactive-sandbox-host {
 	position: relative;
 	width: 100%;
+}
+
+.vue-interactive-sandbox-host:has(.vue-interactive-placeholder) {
 	min-height: 5rem;
 }
 

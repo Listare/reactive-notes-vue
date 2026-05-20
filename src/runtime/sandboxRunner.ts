@@ -113,17 +113,27 @@ function applySandboxTheme(theme: VueInteractiveTheme): void {
 	}
 }
 
+function measureSandboxContentHeight(): number {
+	const mount = document.getElementById("vue-interactive-mount");
+	if (!mount) return 0;
+	const rect = mount.getBoundingClientRect();
+	return Math.ceil(
+		Math.max(rect.height, mount.scrollHeight, mount.offsetHeight),
+	);
+}
+
 function reportResize(requestId: string): void {
-	const height = Math.ceil(document.documentElement.scrollHeight);
+	const height = Math.max(measureSandboxContentHeight(), 1);
 	post({ type: "vue-sandbox-resize", requestId, height });
 }
 
 function watchResize(requestId: string): void {
 	resizeObserver?.disconnect();
+	const mount = ensureMountElement();
 	resizeObserver = new ResizeObserver(() => {
 		reportResize(requestId);
 	});
-	resizeObserver.observe(document.documentElement);
+	resizeObserver.observe(mount);
 	reportResize(requestId);
 }
 

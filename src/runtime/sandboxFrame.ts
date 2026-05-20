@@ -53,6 +53,7 @@ export class SandboxFrame {
 		iframe.setAttribute("title", "Vue-interactive sandbox");
 		iframe.style.border = "none";
 		iframe.style.width = "100%";
+		iframe.style.height = "1px";
 		iframe.style.display = "block";
 		iframe.srcdoc = buildSandboxSrcdoc(
 			runnerScript,
