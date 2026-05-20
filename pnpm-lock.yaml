@@ -72,9 +72,6 @@ importers:
       tslib:
         specifier: 2.4.0
         version: 2.4.0
-      tsx:
-        specifier: ^4.22.0
-        version: 4.22.0
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
@@ -85,10 +82,10 @@ importers:
         specifier: ^3.0.5
         version: 3.2.4(@types/node@16.18.126)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.32.0)(tsx@4.22.0)(yaml@2.9.0)
       wdio-obsidian-reporter:
-        specifier: ^3.0.3
+        specifier: 3.0.3
         version: 3.0.3
       wdio-obsidian-service:
-        specifier: ^3.0.3
+        specifier: 3.0.3
         version: 3.0.3(obsidian@1.12.3(@codemirror/state@6.5.0)(@codemirror/view@6.38.6))(webdriverio@9.27.1)
 
 packages:
