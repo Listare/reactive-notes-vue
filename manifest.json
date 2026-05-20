@@ -4,6 +4,6 @@
 	"version": "1.0.0",
 	"minAppVersion": "1.4.0",
 	"description": "Render interactive Vue 3 components from vue-interactive code blocks in your notes.",
-	"author": "",
+	"author": "Listare",
 	"isDesktopOnly": true
 }
