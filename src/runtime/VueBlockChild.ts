@@ -17,6 +17,7 @@ import {
 	clearVueBlockVaultDependencies,
 	setVueBlockVaultDependencies,
 } from "./vueBlockDependencyIndex";
+import { loadMathJaxPreamble } from "../math/loadMathJaxPreamble";
 import type ReactiveNotesVuePlugin from "../main";
 
 export class VueBlockChild extends MarkdownRenderChild {
@@ -117,6 +118,10 @@ export class VueBlockChild extends MarkdownRenderChild {
 			this.sandbox = sandbox;
 			await sandbox.init();
 			const theme = this.currentTheme();
+			const mathJaxPreamble = await loadMathJaxPreamble(
+				this.plugin.app,
+				this.plugin.settings.mathJaxPreamblePath,
+			);
 			await sandbox.renderInSandbox(
 				{
 					moduleCode: compiled.moduleCode,
@@ -124,6 +129,7 @@ export class VueBlockChild extends MarkdownRenderChild {
 					styles: compiled.styles,
 					scopeId: compiled.scopeId,
 					theme,
+					mathJaxPreamble,
 				},
 				(error) => {
 					const loc = parseModuleLoadErrorLocation(error.message);

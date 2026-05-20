@@ -6,6 +6,7 @@ import { rewriteScopedCssForMountRoot, scopeDataAttribute } from "../compiler/re
 import { applyThemeToElement } from "../theme/applyVueInteractiveTheme";
 import type { VueInteractiveTheme } from "../theme/getTheme";
 import { createGetThemeSandboxModule } from "./getThemeSandboxModule";
+import { prepareMathJax } from "../math/renderLatex";
 import { createMathSandboxModule } from "./mathSandboxModule";
 import { createObsidianSandboxModule } from "./obsidian/proxyClient";
 import { executeModule } from "./executeModule";
@@ -136,6 +137,7 @@ async function handleRender(
 		throw new Error("Obsidian API 桥接未就绪。");
 	}
 	const obsidian = createObsidianSandboxModule(obsidianPort);
+	await prepareMathJax(msg.mathJaxPreamble);
 	const component: Component = await executeModule(
 		msg.moduleCode,
 		obsidian,

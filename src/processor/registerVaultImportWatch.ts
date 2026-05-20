@@ -1,6 +1,7 @@
 import { TFile } from "obsidian";
 import type ReactiveNotesVuePlugin from "../main";
 import type { VueBlockChild } from "../runtime/VueBlockChild";
+import { forEachVueBlock } from "../runtime/vueBlockRegistry";
 import {
 	getVueBlocksWatchingVaultPath,
 } from "../runtime/vueBlockDependencyIndex";
@@ -54,6 +55,12 @@ async function flushPending(
 		for (const block of getVueBlocksWatchingVaultPath(path)) {
 			blocks.add(block);
 		}
+	}
+	const preamblePath = normalizeVaultPath(
+		plugin.settings.mathJaxPreamblePath,
+	);
+	if (preamblePath && paths.has(preamblePath)) {
+		forEachVueBlock((block) => blocks.add(block));
 	}
 	if (blocks.size === 0) return;
 

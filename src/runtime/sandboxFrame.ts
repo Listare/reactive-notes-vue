@@ -62,7 +62,7 @@ export class SandboxFrame {
 			const timeout = window.setTimeout(() => {
 				cleanup();
 				reject(new Error("沙盒初始化超时。"));
-			}, 15_000);
+			}, 30_000);
 
 			const onMessage = (event: MessageEvent) => {
 				if (event.source !== iframe.contentWindow) return;
@@ -111,6 +111,7 @@ export class SandboxFrame {
 			styles: SandboxStyleChunk[];
 			scopeId: string;
 			theme: VueInteractiveTheme;
+			mathJaxPreamble: string;
 		},
 		onRuntimeError?: (error: SandboxRuntimeError) => void,
 	): Promise<void> {
@@ -124,6 +125,7 @@ export class SandboxFrame {
 		styles: SandboxStyleChunk[];
 		scopeId: string;
 		theme: VueInteractiveTheme;
+		mathJaxPreamble: string;
 	}): Promise<void> {
 		const iframe = this.iframe;
 		const targetWindow = iframe?.contentWindow;
@@ -141,6 +143,7 @@ export class SandboxFrame {
 			styles: options.styles,
 			scopeId: options.scopeId,
 			theme: options.theme,
+			mathJaxPreamble: options.mathJaxPreamble,
 		};
 
 		return new Promise((resolve, reject) => {

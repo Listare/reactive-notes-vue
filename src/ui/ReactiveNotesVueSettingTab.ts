@@ -5,6 +5,8 @@ import {
 	type DarkModePreference,
 } from "../settings/darkMode";
 import { normalizeCustomScriptPath } from "../settings/normalizeCustomScriptPath";
+import { normalizeMathJaxPreamblePath } from "../settings/normalizeMathJaxPreamblePath";
+import { refreshVueInteractiveBlocksForMathJax } from "../math/refreshMathJaxBlocks";
 import { applyVueInteractiveThemeSync } from "../theme/registerObsidianThemeSync";
 
 export class ReactiveNotesVueSettingTab extends PluginSettingTab {
@@ -53,6 +55,23 @@ export class ReactiveNotesVueSettingTab extends PluginSettingTab {
 						this.plugin.settings.customScriptPath =
 							normalizeCustomScriptPath(value);
 						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("MathJax 前置文件")
+			.setDesc(
+				"库内 TeX 文件路径，在渲染公式前执行（例如 preamble.sty，可写 \\newcommand）。留空则不加载；修改文件后打开笔记的块会自动刷新。",
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("例如 preamble.sty")
+					.setValue(this.plugin.settings.mathJaxPreamblePath)
+					.onChange(async (value) => {
+						this.plugin.settings.mathJaxPreamblePath =
+							normalizeMathJaxPreamblePath(value);
+						await this.plugin.saveSettings();
+						refreshVueInteractiveBlocksForMathJax(this.plugin);
 					}),
 			);
 	}

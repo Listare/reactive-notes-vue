@@ -16,6 +16,8 @@ export type SandboxInbound =
 			styles: SandboxStyleChunk[];
 			scopeId: string;
 			theme: VueInteractiveTheme;
+			/** TeX preamble executed before rendering (empty if unset). */
+			mathJaxPreamble: string;
 	  }
 	| { type: "vue-sandbox-unmount"; requestId: string }
 	| {

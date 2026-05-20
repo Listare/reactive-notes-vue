@@ -2,6 +2,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { describe, expect, it } from "vitest";
 import { bundleGraph } from "../../bundler/bundleGraph";
+import { prepareScriptModule } from "../../bundler/prepareScriptModule";
 import { compileSfc } from "../compileSfc";
 import { collectImportsFromSfc } from "../../bundler/collectImports";
 import type { ModuleLoader } from "../../bundler/types";
@@ -14,6 +15,7 @@ const readVault = (vaultPath: string) =>
 
 const PANEL = readVault("test-vault/scripts/DistributionPanel.vue");
 const CHART = readVault("test-vault/scripts/DistributionChart.vue");
+const DISTRIBUTIONS = readVault("test-vault/scripts/distributions.ts");
 
 function loaderForScripts(): ModuleLoader {
 	return {
@@ -37,6 +39,15 @@ function loaderForScripts(): ModuleLoader {
 					code: compiled.moduleCode,
 					styles: compiled.styles,
 					dependencies: collectImportsFromSfc(CHART),
+				};
+			}
+			if (specifier === "@custom-script/distributions.ts") {
+				return {
+					canonicalId: "scripts/distributions.ts",
+					vaultPath: "scripts/distributions.ts",
+					code: prepareScriptModule(DISTRIBUTIONS, "scripts/distributions.ts"),
+					styles: [],
+					dependencies: [],
 				};
 			}
 			throw new Error(`unexpected ${specifier}`);

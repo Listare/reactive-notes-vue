@@ -156,6 +156,8 @@ const integral = ref(String.raw`\int_0^1 x^2\, dx`);
 - `latex`：TeX/LaTeX 源字符串（不含 `$` 定界符）
 - `display`：为 `true` 时按块级公式居中显示
 
+在 **设置 → Reactive Notes Vue → MathJax 前置文件** 可指定库内 TeX 文件（如 `preamble.sty`），渲染前会执行其中的 `\newcommand` 等定义；修改该文件后已打开的 vue-interactive 块会自动刷新。
+
 手测用例见 test-vault 中的 [[14 - MathJax]]。
 
 ## 架构
