@@ -1,8 +1,4 @@
-import {
-	ensureMathJaxEngine,
-	getMathJaxDocument,
-	prepareMathJax,
-} from "./configureMathJax";
+import { ensureMathJaxEngine, getMathJaxDocument } from "./configureMathJax";
 
 export { prepareMathJax, resetMathJaxForTests } from "./configureMathJax";
 
@@ -12,6 +8,8 @@ export function renderLatexToHtml(latex: string, display: boolean): string {
 	if (!trimmed) return "";
 	ensureMathJaxEngine();
 	const { htmlDocument, adaptor } = getMathJaxDocument();
-	const node = htmlDocument.convert(trimmed, { display });
+	const node = htmlDocument.convert(trimmed, { display }) as Parameters<
+		typeof adaptor.outerHTML
+	>[0];
 	return adaptor.outerHTML(node);
 }

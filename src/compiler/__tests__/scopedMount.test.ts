@@ -3,17 +3,12 @@ import { compileSfc } from "../compileSfc";
 import { rewriteScopedCssForMountRoot, scopeDataAttribute } from "../rewriteScopedCss";
 import { executeModule } from "../../runtime/executeModule";
 import { createApp } from "vue";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readVaultVueInteractiveFixture } from "../../test/readVueInteractiveFixture";
 
-const BLOCK_A = readFileSync(
-	join(process.cwd(), "test-vault/02 - 作用域样式.md"),
-	"utf8",
-).match(/```vue-interactive\n([\s\S]*?)```/)?.[1];
+const BLOCK_A = readVaultVueInteractiveFixture("test-vault/02 - 作用域样式.md");
 
 describe("scoped mount", () => {
 	it("applies scoped styles via mount-root rewrite", async () => {
-		if (!BLOCK_A) throw new Error("fixture missing");
 		const { moduleCode, styles, scopeId } = compileSfc(BLOCK_A);
 		const css = rewriteScopedCssForMountRoot(styles[0]?.css ?? "", scopeId);
 

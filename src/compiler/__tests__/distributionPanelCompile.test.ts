@@ -8,6 +8,7 @@ import { collectImportsFromSfc } from "../../bundler/collectImports";
 import type { ModuleLoader } from "../../bundler/types";
 import { executeModule } from "../../runtime/executeModule";
 import { validateModuleSyntax } from "../../runtime/validateModuleSyntax";
+import { extractFirstVueInteractiveBlock } from "../../test/readVueInteractiveFixture";
 
 const ROOT = process.cwd();
 const readVault = (vaultPath: string) =>
@@ -64,7 +65,7 @@ describe("DistributionPanel.vue compile", () => {
 
 	it("bundled note 16 produces executable module", async () => {
 		const note = readVault("test-vault/16 - 复杂场景-分离.md");
-		const fence = /```vue-interactive\n([\s\S]*?)```/.exec(note)?.[1];
+		const fence = extractFirstVueInteractiveBlock(note);
 		expect(fence).toBeTruthy();
 
 		const entryCompiled = compileSfc(fence!);

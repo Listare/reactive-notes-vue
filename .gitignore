@@ -5,8 +5,9 @@
 *.iml
 .idea
 
-# npm
+# dependencies
 node_modules
+package-lock.json
 
 # Don't include compiled bundles in the repo (upload via GitHub releases).
 main.js

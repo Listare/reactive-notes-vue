@@ -9,11 +9,11 @@ import { prepareScriptModule } from "../../bundler/prepareScriptModule";
 import { extractNamedCodeBlock } from "../../markdown/extractNamedCodeBlock";
 import { executeModule } from "../../runtime/executeModule";
 import type { ModuleLoader } from "../../bundler/types";
+import { readVaultVueInteractiveFixture } from "../../test/readVueInteractiveFixture";
 
-const FIXTURE_07 = readFileSync(
-	join(process.cwd(), "test-vault/07 - 导入Markdown代码块.md"),
-	"utf8",
-).match(/```vue-interactive\n([\s\S]*?)```/)?.[1]!;
+const FIXTURE_07 = readVaultVueInteractiveFixture(
+	"test-vault/07 - 导入Markdown代码块.md",
+);
 
 const SNIPPETS = readFileSync(
 	join(process.cwd(), "test-vault/shared/snippets.md"),

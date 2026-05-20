@@ -10,6 +10,7 @@ import type {
 } from "./sandboxProtocol";
 import type { VueInteractiveTheme } from "../theme/getTheme";
 import type { StackCodeRegion } from "./stackTrace";
+import { SandboxAbortedError } from "./sandboxAbort";
 
 export type SandboxRuntimeError = {
 	message: string;
@@ -26,6 +27,7 @@ export class SandboxFrame {
 	private activeRequestId: string | null = null;
 	private onRuntimeError: ((error: SandboxRuntimeError) => void) | null =
 		null;
+	private cancelReadyInit: (() => void) | null = null;
 
 	constructor(
 		private readonly container: HTMLElement,
@@ -33,8 +35,12 @@ export class SandboxFrame {
 	) {}
 
 	async init(): Promise<void> {
-		if (this.readyPromise) {
-			return this.readyPromise;
+		if (this.readyPromise) return this.readyPromise;
+
+		for (const stale of Array.from(
+			this.container.querySelectorAll("iframe.vue-interactive-sandbox"),
+		)) {
+			stale.remove();
 		}
 
 		const runnerScript = getSandboxRunnerScript();
@@ -42,9 +48,9 @@ export class SandboxFrame {
 		iframe.className = "vue-interactive-sandbox";
 		iframe.setAttribute(
 			"sandbox",
-			"allow-scripts",
+			"allow-scripts allow-same-origin",
 		);
-		iframe.setAttribute("title", "vue-interactive sandbox");
+		iframe.setAttribute("title", "Vue-interactive sandbox");
 		iframe.style.border = "none";
 		iframe.style.width = "100%";
 		iframe.style.display = "block";
@@ -54,32 +60,55 @@ export class SandboxFrame {
 		);
 
 		this.iframe = iframe;
-		this.container.appendChild(iframe);
-
 		this.obsidianBridge = new ObsidianBridgeSession(this.app);
 
-		this.readyPromise = new Promise((resolve, reject) => {
-			const timeout = window.setTimeout(() => {
-				cleanup();
-				reject(new Error("沙盒初始化超时。"));
-			}, 30_000);
-
-			const onMessage = (event: MessageEvent) => {
-				if (event.source !== iframe.contentWindow) return;
-				const data = event.data as SandboxOutbound;
-				if (data?.type === "vue-sandbox-ready") {
+		const awaitReady = (): Promise<void> =>
+			new Promise<void>((resolve, reject) => {
+				let settled = false;
+				const timeout = window.setTimeout(() => {
+					if (settled) return;
+					settled = true;
 					cleanup();
-					resolve();
-				}
-			};
+					reject(new Error("沙盒初始化超时。"));
+				}, 30_000);
 
-			const cleanup = () => {
-				window.clearTimeout(timeout);
-				window.removeEventListener("message", onMessage);
-			};
+				const onMessage = (event: MessageEvent) => {
+					if (event.source !== iframe.contentWindow) return;
+					const data = event.data as SandboxOutbound;
+					if (data?.type === "vue-sandbox-ready") {
+						if (settled) return;
+						settled = true;
+						cleanup();
+						resolve();
+					}
+				};
 
-			window.addEventListener("message", onMessage);
-		});
+				const cleanup = () => {
+					window.clearTimeout(timeout);
+					window.removeEventListener("message", onMessage);
+					this.cancelReadyInit = null;
+				};
+
+				this.cancelReadyInit = () => {
+					if (settled) return;
+					settled = true;
+					cleanup();
+					reject(new SandboxAbortedError());
+				};
+
+				window.addEventListener("message", onMessage);
+			});
+
+		this.readyPromise = awaitReady();
+		this.container.appendChild(iframe);
+
+		const targetWindow = iframe.contentWindow;
+		if (targetWindow) {
+			targetWindow.postMessage(
+				{ type: "vue-sandbox-resync-ready" } satisfies SandboxInbound,
+				"*",
+			);
+		}
 
 		this.messageHandler = (event: MessageEvent) => {
 			if (event.source !== iframe.contentWindow) return;
@@ -101,7 +130,12 @@ export class SandboxFrame {
 		};
 		window.addEventListener("message", this.messageHandler);
 
-		return this.readyPromise;
+		try {
+			await this.readyPromise;
+		} catch (e) {
+			this.readyPromise = null;
+			throw e;
+		}
 	}
 
 	renderInSandbox(
@@ -208,7 +242,13 @@ export class SandboxFrame {
 		);
 	}
 
+	getIframe(): HTMLIFrameElement | null {
+		return this.iframe;
+	}
+
 	unmount(): void {
+		this.cancelReadyInit?.();
+		this.cancelReadyInit = null;
 		this.activeRequestId = null;
 		this.onRuntimeError = null;
 		const iframe = this.iframe;

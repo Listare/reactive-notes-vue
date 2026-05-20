@@ -169,10 +169,6 @@ export function rewriteRuntimeStack(
 ): string | undefined {
 	if (!stack || regions.length === 0) return stack;
 
-	const sorted = [...regions].sort(
-		(a, b) => a.codeStartLine - b.codeStartLine,
-	);
-
 	return stack.replace(/^(\s*at\s.+)$/gm, (frame) => {
 		const locMatch = frame.match(
 			/(?:<anonymous>|about:srcdoc):(\d+):(\d+)\)?\s*$/,

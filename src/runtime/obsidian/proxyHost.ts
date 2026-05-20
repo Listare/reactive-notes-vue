@@ -6,7 +6,7 @@ import type {
 	ObsidianProxyTarget,
 	ObsidianWireValue,
 } from "./bridgeProtocol";
-import { encodeWireArgs, encodeWireValue, isWireRef } from "./wireCodec";
+import { encodeWireValue, isWireRef } from "./wireCodec";
 
 function resolvePath(root: unknown, path: string[]): unknown {
 	let cur: unknown = root;

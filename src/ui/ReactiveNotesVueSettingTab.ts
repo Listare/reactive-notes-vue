@@ -22,10 +22,6 @@ export class ReactiveNotesVueSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName("Reactive Notes Vue")
-			.setHeading();
-
-		new Setting(containerEl)
 			.setName("暗色模式")
 			.setDesc(
 				"控制 vue-interactive 块与 Tailwind dark: 变体。默认跟随 Obsidian 主题。",

@@ -2,9 +2,15 @@ import { MarkdownPostProcessorContext, TFile } from "obsidian";
 import type ReactiveNotesVuePlugin from "../main";
 import { findVueInteractiveBlockByContent } from "../markdown/findVueInteractiveBlockByContent";
 import { VueBlockChild } from "../runtime/VueBlockChild";
-import { registerVueBlock } from "../runtime/vueBlockRegistry";
+import {
+	registerVueBlock,
+	registerVueBlockInsertRemount,
+} from "../runtime/vueBlockRegistry";
 import { registerObsidianThemeSync } from "../theme/registerObsidianThemeSync";
-
+import {
+	registerVueBlockIntersectionRemount,
+	registerVueInteractiveReadingRemount,
+} from "./vueInteractiveRemount";
 export function registerVueInteractiveProcessor(
 	plugin: ReactiveNotesVuePlugin,
 ): void {
@@ -14,6 +20,7 @@ export function registerVueInteractiveProcessor(
 			void renderVueInteractiveBlock(plugin, source, el, ctx);
 		},
 	);
+	registerVueInteractiveReadingRemount(plugin);
 }
 
 async function renderVueInteractiveBlock(
@@ -36,8 +43,10 @@ async function renderVueInteractiveBlock(
 		}
 	}
 
-	const child = new VueBlockChild(el, plugin, ctx.sourcePath);
+	const child = new VueBlockChild(el, plugin, ctx.sourcePath, source);
 	registerVueBlock(el, child);
+	registerVueBlockInsertRemount(el);
+	registerVueBlockIntersectionRemount(el);
 	ctx.addChild(child);
 	await child.render(source, markdown);
 }

@@ -198,6 +198,11 @@ window.addEventListener("message", (event: MessageEvent) => {
 
 	if (data.type === "vue-sandbox-theme") {
 		applySandboxTheme(data.theme);
+		return;
+	}
+
+	if (data.type === "vue-sandbox-resync-ready") {
+		post({ type: "vue-sandbox-ready" });
 	}
 });
 

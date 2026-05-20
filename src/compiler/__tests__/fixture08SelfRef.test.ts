@@ -1,6 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { compileSfc } from "../compileSfc";
 import { transpileTypeScript } from "../../bundler/transpile";
 import { bundleGraph } from "../../bundler/bundleGraph";
@@ -12,21 +10,15 @@ import { prepareScriptModule } from "../../bundler/prepareScriptModule";
 import { extractNamedCodeBlock } from "../../markdown/extractNamedCodeBlock";
 import { executeModule } from "../../runtime/executeModule";
 import type { ModuleLoader } from "../../bundler/types";
+import {
+	readVaultMarkdown,
+	readVaultVueInteractiveFixture,
+} from "../../test/readVueInteractiveFixture";
 
-const FIXTURE_PATH = join(process.cwd(), "test-vault/08 - 自引用.md");
-const FIXTURE_08 = readFileSync(FIXTURE_PATH, "utf8");
-function lastVueInteractiveBlock(markdown: string): string {
-	const re = /```vue-interactive[^\n]*\r?\n([\s\S]*?)```/g;
-	let last: string | undefined;
-	let match: RegExpExecArray | null;
-	while ((match = re.exec(markdown)) !== null) {
-		last = match[1];
-	}
-	if (!last) throw new Error("fixture missing main vue-interactive block");
-	return last;
-}
-
-const MAIN_BLOCK = lastVueInteractiveBlock(FIXTURE_08);
+const FIXTURE_08 = readVaultMarkdown("test-vault/08 - 自引用.md");
+const MAIN_BLOCK = readVaultVueInteractiveFixture("test-vault/08 - 自引用.md", {
+	which: "last",
+});
 const sourcePath = "08 - 自引用.md";
 
 function blockContent(name: string): string {

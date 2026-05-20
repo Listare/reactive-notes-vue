@@ -158,7 +158,7 @@ export function createObsidianSandboxModule(
 					return target.default;
 				}
 				if (typeof prop === "symbol") {
-					return Reflect.get(target, prop);
+					return Reflect.get(target, prop) as unknown;
 				}
 				return createProxy("export", undefined, [String(prop)]);
 			},

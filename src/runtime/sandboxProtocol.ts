@@ -24,7 +24,8 @@ export type SandboxInbound =
 			type: "vue-sandbox-theme";
 			requestId: string;
 			theme: VueInteractiveTheme;
-	  };
+	  }
+	| { type: "vue-sandbox-resync-ready" };
 
 /** Sandbox iframe → parent */
 export type SandboxOutbound =

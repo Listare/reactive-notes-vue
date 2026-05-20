@@ -27,7 +27,8 @@ pnpm run build    # 生产构建，并同步到 test-vault
 1. 执行 `pnpm run dev`
 2. Obsidian → **打开其他库** → 选择本仓库下的 `test-vault`
 3. 启用社区插件 **Reactive Notes Vue**（库内已预配置）
-4. 阅读模式下打开 [[00 - 索引]]，逐篇检查
+4. 手动调整插件设置
+5. 阅读模式下打开 [[00 - 索引]]，逐篇检查
 
 也可单独同步：`pnpm run sync-vault`（需已存在 `main.js`）。
 

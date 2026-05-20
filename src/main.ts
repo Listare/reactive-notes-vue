@@ -9,7 +9,6 @@ import {
 import { registerVaultImportWatch } from "./processor/registerVaultImportWatch";
 import { ReactiveNotesVueSettingTab } from "./ui/ReactiveNotesVueSettingTab";
 import { syncVueInteractiveTheme } from "./theme/syncVueInteractiveTheme";
-
 export default class ReactiveNotesVuePlugin extends Plugin {
 	settings: ReactiveNotesVueSettings = DEFAULT_SETTINGS;
 
