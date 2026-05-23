@@ -5,9 +5,14 @@ export function buildSandboxSrcdoc(
 ): string {
 	const safeScript = runnerScript.replace(/<\/script/gi, "<\\/script");
 	const safeCss = tailwindCss.replace(/<\/style/gi, "<\\/style");
-	const styleBlock = safeCss
-		? `<style data-vue-interactive="tailwind">${safeCss}</style>`
-		: "";
+	const resetCss =
+		"html,body{margin:0;padding:0;overflow:hidden;height:auto}";
+	const styleBlock = [
+		`<style data-vue-interactive="reset">${resetCss}</style>`,
+		safeCss
+			? `<style data-vue-interactive="tailwind">${safeCss}</style>`
+			: "",
+	].join("");
 	return [
 		"<!DOCTYPE html>",
 		'<html lang="en">',

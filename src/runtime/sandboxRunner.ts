@@ -17,6 +17,7 @@ import type {
 	SandboxOutbound,
 	SandboxStyleChunk,
 } from "./sandboxProtocol";
+import { measureMountHeight } from "./measureMountHeight";
 
 let vueApp: VueApp | null = null;
 type ActiveRenderSession = {
@@ -26,6 +27,7 @@ type ActiveRenderSession = {
 let activeRender: ActiveRenderSession | null = null;
 const styleEls: HTMLStyleElement[] = [];
 let resizeObserver: ResizeObserver | null = null;
+let pendingResizeFrame = 0;
 let obsidianPort: MessagePort | null = null;
 const themeRef: Ref<VueInteractiveTheme> = ref("light");
 
@@ -116,10 +118,7 @@ function applySandboxTheme(theme: VueInteractiveTheme): void {
 function measureSandboxContentHeight(): number {
 	const mount = document.getElementById("vue-interactive-mount");
 	if (!mount) return 0;
-	const rect = mount.getBoundingClientRect();
-	return Math.ceil(
-		Math.max(rect.height, mount.scrollHeight, mount.offsetHeight),
-	);
+	return measureMountHeight(mount);
 }
 
 function reportResize(requestId: string): void {
@@ -127,14 +126,31 @@ function reportResize(requestId: string): void {
 	post({ type: "vue-sandbox-resize", requestId, height });
 }
 
+function scheduleReportResize(requestId: string): void {
+	if (pendingResizeFrame) {
+		cancelAnimationFrame(pendingResizeFrame);
+	}
+	pendingResizeFrame = requestAnimationFrame(() => {
+		pendingResizeFrame = requestAnimationFrame(() => {
+			pendingResizeFrame = 0;
+			reportResize(requestId);
+		});
+	});
+}
+
 function watchResize(requestId: string): void {
 	resizeObserver?.disconnect();
+	if (pendingResizeFrame) {
+		cancelAnimationFrame(pendingResizeFrame);
+		pendingResizeFrame = 0;
+	}
 	const mount = ensureMountElement();
 	resizeObserver = new ResizeObserver(() => {
-		reportResize(requestId);
+		scheduleReportResize(requestId);
 	});
 	resizeObserver.observe(mount);
 	reportResize(requestId);
+	scheduleReportResize(requestId);
 }
 
 async function handleRender(
@@ -202,6 +218,10 @@ window.addEventListener("message", (event: MessageEvent) => {
 	if (data.type === "vue-sandbox-unmount") {
 		resizeObserver?.disconnect();
 		resizeObserver = null;
+		if (pendingResizeFrame) {
+			cancelAnimationFrame(pendingResizeFrame);
+			pendingResizeFrame = 0;
+		}
 		clearMount();
 		return;
 	}

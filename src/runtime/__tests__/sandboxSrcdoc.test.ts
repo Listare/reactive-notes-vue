@@ -9,6 +9,8 @@ describe("buildSandboxSrcdoc", () => {
 		);
 		expect(srcdoc).toContain('console.log("<\\/script>")');
 		expect(srcdoc).toContain("vue-interactive-mount");
+		expect(srcdoc).toContain("data-vue-interactive=\"reset\"");
+		expect(srcdoc).toContain("overflow:hidden");
 		expect(srcdoc).not.toContain('console.log("</script>")');
 		expect(srcdoc).toContain("data-vue-interactive=\"tailwind\"");
 		expect(srcdoc).toContain(".tw{color:red}");

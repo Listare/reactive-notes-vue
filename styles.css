@@ -67,6 +67,8 @@
 .vue-interactive-sandbox {
 	width: 100%;
 	min-height: 1rem;
+	overflow: hidden;
+	display: block;
 }
 
 .vue-interactive-runtime-error-host:not(:empty) {

@@ -51,10 +51,12 @@ export class SandboxFrame {
 			"allow-scripts allow-same-origin",
 		);
 		iframe.setAttribute("title", "Vue-interactive sandbox");
+		iframe.setAttribute("scrolling", "no");
 		iframe.style.border = "none";
 		iframe.style.width = "100%";
 		iframe.style.height = "1px";
 		iframe.style.display = "block";
+		iframe.style.overflow = "hidden";
 		iframe.srcdoc = buildSandboxSrcdoc(
 			runnerScript,
 			getSandboxTailwindCss(),
