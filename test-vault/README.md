@@ -27,6 +27,7 @@
 | [[11 - Obsidian API]] | 内置 `@obsidian`（`app.vault`、`Notice`） |
 | [[12 - 主题与 Tailwind]] | Obsidian 主题变量、Tailwind `dark:`、暗色模式设置 |
 | [[13 - 错误-运行时]] | 组件先渲染，下方「运行时错误」面板（onMounted / 点击） |
+| [[17 - 异步setup]] | `<script setup>` 顶层 `await` 完成后仍渲染 |
 
 ## 插件文件
 

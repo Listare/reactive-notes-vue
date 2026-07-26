@@ -1,7 +1,7 @@
 /**
  * Bundled to sandbox-runner.js (IIFE). Runs inside a sandboxed iframe (allow-scripts only).
  */
-import { createApp, ref, type App as VueApp, type Component, type Ref } from "vue";
+import { ref, type App as VueApp, type Component, type Ref } from "vue";
 import { rewriteScopedCssForMountRoot, scopeDataAttribute } from "../compiler/rewriteScopedCss";
 import { applyThemeToElement } from "../theme/applyVueInteractiveTheme";
 import type { VueInteractiveTheme } from "../theme/getTheme";
@@ -10,6 +10,7 @@ import { prepareMathJax } from "../math/renderLatex";
 import { createMathSandboxModule } from "./mathSandboxModule";
 import { createObsidianSandboxModule } from "./obsidian/proxyClient";
 import { executeModule } from "./executeModule";
+import { mountWithSuspense } from "./mountWithSuspense";
 import { enhanceModuleLoadError, rewriteRuntimeStack } from "./stackTrace";
 import type { StackCodeRegion } from "./stackTrace";
 import type {
@@ -180,11 +181,15 @@ async function handleRender(
 		requestId: msg.requestId,
 		stackRegions: msg.stackRegions,
 	};
-	vueApp = createApp(component);
-	vueApp.config.errorHandler = (err, _instance, info) => {
-		reportRuntimeError(err, info);
-	};
-	vueApp.mount(mountEl);
+	// Wrap in Suspense so script-setup top-level await (async setup) can render.
+	// Wait until resolve before announcing rendered — avoids empty-mount remount.
+	const { app, whenReady } = mountWithSuspense(component, mountEl, {
+		onRuntimeError: (err, info) => {
+			reportRuntimeError(err, info);
+		},
+	});
+	vueApp = app;
+	await whenReady;
 	post({ type: "vue-sandbox-rendered", requestId: msg.requestId });
 	watchResize(msg.requestId);
 }
