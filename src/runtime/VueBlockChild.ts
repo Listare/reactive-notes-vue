@@ -206,6 +206,8 @@ export class VueBlockChild extends MarkdownRenderChild {
 					scopeId: compiled.scopeId,
 					theme,
 					mathJaxPreamble,
+					enableExtendedNodeBuiltins:
+						this.plugin.settings.enableExtendedNodeBuiltins,
 				},
 				(error) => {
 					const loc = parseModuleLoadErrorLocation(error.message);

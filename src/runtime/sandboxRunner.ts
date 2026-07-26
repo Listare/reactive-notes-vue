@@ -9,6 +9,7 @@ import { createGetThemeSandboxModule } from "./getThemeSandboxModule";
 import { prepareMathJax } from "../math/renderLatex";
 import { createMathSandboxModule } from "./mathSandboxModule";
 import { createObsidianSandboxModule } from "./obsidian/proxyClient";
+import { createNodeSandboxModules } from "./node/proxyClient";
 import { executeModule } from "./executeModule";
 import { mountWithSuspense } from "./mountWithSuspense";
 import { enhanceModuleLoadError, rewriteRuntimeStack } from "./stackTrace";
@@ -30,6 +31,7 @@ const styleEls: HTMLStyleElement[] = [];
 let resizeObserver: ResizeObserver | null = null;
 let pendingResizeFrame = 0;
 let obsidianPort: MessagePort | null = null;
+let nodePort: MessagePort | null = null;
 const themeRef: Ref<VueInteractiveTheme> = ref("light");
 
 function post(message: SandboxOutbound): void {
@@ -163,13 +165,18 @@ async function handleRender(
 	if (!obsidianPort) {
 		throw new Error("Obsidian API 桥接未就绪。");
 	}
+	if (!nodePort) {
+		throw new Error("Node 内置模块桥接未就绪。");
+	}
 	const obsidian = createObsidianSandboxModule(obsidianPort);
+	const nodeModules = createNodeSandboxModules(nodePort);
 	await prepareMathJax(msg.mathJaxPreamble);
 	const component: Component = await executeModule(
 		msg.moduleCode,
 		obsidian,
 		createGetThemeSandboxModule(getTheme),
 		createMathSandboxModule(),
+		nodeModules,
 		msg.stackRegions,
 	);
 	const mountEl = ensureMountElement();
@@ -195,10 +202,17 @@ async function handleRender(
 }
 
 window.addEventListener("message", (event: MessageEvent) => {
-	if (event.ports[0]) {
-		obsidianPort?.close();
-		obsidianPort = event.ports[0];
-		obsidianPort.start();
+	if (event.ports.length > 0) {
+		if (event.ports[0]) {
+			obsidianPort?.close();
+			obsidianPort = event.ports[0];
+			obsidianPort.start();
+		}
+		if (event.ports[1]) {
+			nodePort?.close();
+			nodePort = event.ports[1];
+			nodePort.start();
+		}
 	}
 
 	const data = event.data as SandboxInbound;

@@ -47,6 +47,17 @@ describe("rewriteModuleImports", () => {
 		expect(code).not.toMatch(/import\s+.*from/);
 	});
 
+	it("leaves node: imports to __node__", () => {
+		const { code, dependencyIds } = rewriteModuleImports(
+			`import { join } from 'node:path'\nreturn {}`,
+			"notes/demo.md",
+			ctx,
+		);
+		expect(code).toContain('const { join } = __node__["path"];');
+		expect(dependencyIds).toEqual([]);
+		expect(code).not.toMatch(/import\s+.*from/);
+	});
+
 	it("rewrites vault imports to __require__", () => {
 		const { code } = rewriteModuleImports(
 			`import x from './lib.js'\nreturn {}`,

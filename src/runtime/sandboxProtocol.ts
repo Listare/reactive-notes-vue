@@ -18,6 +18,8 @@ export type SandboxInbound =
 			theme: VueInteractiveTheme;
 			/** TeX preamble executed before rendering (empty if unset). */
 			mathJaxPreamble: string;
+			/** Allow non-safe Node builtins via host bridge. */
+			enableExtendedNodeBuiltins: boolean;
 	  }
 	| { type: "vue-sandbox-unmount"; requestId: string }
 	| {

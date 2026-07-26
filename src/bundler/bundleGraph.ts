@@ -16,6 +16,10 @@ import {
 	type ResolvePathContext,
 } from "../resolver/resolveVaultPath";
 import { validateCustomScriptPathWhenUsed } from "../settings/validateCustomScriptPath";
+import {
+	collectNodeBuiltinSpecifiersFromCode,
+	validateNodeBuiltinImports,
+} from "../compiler/validateNodeBuiltinImports";
 
 export class BundleError extends Error {
 	constructor(message: string) {
@@ -68,6 +72,10 @@ export async function bundleGraph(
 	};
 
 	const enqueueFromCode = (code: string, fromVaultPath: string) => {
+		validateNodeBuiltinImports(
+			collectNodeBuiltinSpecifiersFromCode(code),
+			ctx.enableExtendedNodeBuiltins === true,
+		);
 		for (const spec of collectImportsFromCode(code)) {
 			enqueueSpecifier(spec, fromVaultPath);
 		}

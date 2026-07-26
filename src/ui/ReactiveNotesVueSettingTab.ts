@@ -70,5 +70,19 @@ export class ReactiveNotesVueSettingTab extends PluginSettingTab {
 						refreshVueInteractiveBlocksForMathJax(this.plugin);
 					}),
 			);
+
+		new Setting(containerEl)
+			.setName("允许扩展 Node 内置模块")
+			.setDesc(
+				"默认仅允许安全子集（如 node:path、node:url）。开启后可通过 node:fs 等访问本机能力，请仅信任自己的笔记脚本。",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.enableExtendedNodeBuiltins)
+					.onChange(async (value) => {
+						this.plugin.settings.enableExtendedNodeBuiltins = value;
+						await this.plugin.saveSettings();
+					}),
+			);
 	}
 }

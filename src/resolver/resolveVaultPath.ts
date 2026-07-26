@@ -1,3 +1,4 @@
+import { isNodeBuiltinSpecifier } from "../builtin/isNodeBuiltin";
 import { parseImportSpecifier } from "./parseImportSpecifier";
 import { normalizeVaultPath, posixDirname, posixJoin } from "../utils/posixPath";
 
@@ -9,6 +10,8 @@ export interface ResolvePathContext {
 	fromPath: string;
 	/** Vault-relative custom script root (no trailing slash). */
 	customScriptPath: string;
+	/** When true, allow non-safe `node:` builtins during bundling. */
+	enableExtendedNodeBuiltins?: boolean;
 }
 
 export class ImportPathError extends Error {
@@ -50,6 +53,11 @@ export function resolveVaultPath(
 	) {
 		throw new ImportPathError(
 			'内置模块 "@vue-interactive/math" 不应走文件解析。',
+		);
+	}
+	if (isNodeBuiltinSpecifier(rawPath)) {
+		throw new ImportPathError(
+			`内置模块 "${rawPath}" 不应走文件解析。`,
 		);
 	}
 

@@ -5,12 +5,14 @@ import {
 import type { ResolvePathContext } from "../resolver/resolveVaultPath";
 import { isGetThemeBuiltinSpecifier } from "../builtin/isGetThemeBuiltin";
 import { isMathBuiltinSpecifier } from "../builtin/isMathBuiltin";
+import { isNodeBuiltinSpecifier } from "../builtin/isNodeBuiltin";
 import { isObsidianBuiltinSpecifier } from "../builtin/isObsidianBuiltin";
 import {
 	rewriteBuiltinImportsInCode,
 	VUE_IMPORT_RE,
 } from "../compiler/rewriteImports";
 import { OBSIDIAN_SIDE_EFFECT_IMPORT_RE } from "../compiler/rewriteObsidianImports";
+import { NODE_SIDE_EFFECT_IMPORT_RE } from "../compiler/rewriteNodeImports";
 
 function toCanonicalId(
 	specifier: string,
@@ -76,7 +78,8 @@ function isBuiltinSpecifier(spec: string): boolean {
 		spec === "vue" ||
 		isObsidianBuiltinSpecifier(spec) ||
 		isGetThemeBuiltinSpecifier(spec) ||
-		isMathBuiltinSpecifier(spec)
+		isMathBuiltinSpecifier(spec) ||
+		isNodeBuiltinSpecifier(spec)
 	);
 }
 
@@ -148,6 +151,7 @@ export function rewriteModuleImports(
 	// Remove any remaining built-in import lines missed by rewriteBuiltinImportsInCode
 	out = out.replace(VUE_IMPORT_RE, "");
 	out = out.replace(OBSIDIAN_SIDE_EFFECT_IMPORT_RE, "");
+	out = out.replace(NODE_SIDE_EFFECT_IMPORT_RE, "");
 
 	out = out.replace(/export\s+default\s+/g, "return ");
 

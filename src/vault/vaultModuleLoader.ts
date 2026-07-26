@@ -21,6 +21,11 @@ import {
 	type ResolvePathContext,
 } from "../resolver/resolveVaultPath";
 import type { CompiledStyle } from "../compiler/compileSfc";
+import {
+	collectNodeBuiltinSpecifiersFromCode,
+	collectNodeBuiltinSpecifiersFromSfc,
+	validateNodeBuiltinImports,
+} from "../compiler/validateNodeBuiltinImports";
 
 const BINARY_RESOURCE_EXT =
 	/\.(png|jpe?g|gif|webp|svg|ico|woff2?|ttf|eot|mp3|mp4|webm|pdf)$/i;
@@ -33,6 +38,20 @@ function canonicalId(vaultPath: string, block?: string): string {
 
 function dataModuleCode(data: unknown): string {
 	return `return { default: ${JSON.stringify(data)} };`;
+}
+
+function validateNodeImportsForSource(
+	source: string,
+	ctx: ResolvePathContext,
+	asSfc: boolean,
+): void {
+	const specs = asSfc
+		? collectNodeBuiltinSpecifiersFromSfc(source)
+		: collectNodeBuiltinSpecifiersFromCode(source);
+	validateNodeBuiltinImports(
+		specs,
+		ctx.enableExtendedNodeBuiltins === true,
+	);
 }
 
 export function createVaultModuleLoader(
@@ -98,6 +117,7 @@ export function createVaultModuleLoader(
 			if (isJsLikeLanguage(extracted.lang)) {
 				const virtualPath = `${vaultPath}?block=${block}`;
 				if (isVueSfcLanguage(extracted.lang)) {
+					validateNodeImportsForSource(extracted.content, ctx, true);
 					const compiled = compileSfc(extracted.content, {
 						bundleImports: false,
 					});
@@ -112,6 +132,7 @@ export function createVaultModuleLoader(
 						dependencies: collectImportsFromSfc(extracted.content),
 					};
 				}
+				validateNodeImportsForSource(extracted.content, ctx, false);
 				const code = prepareScriptModule(
 					extracted.content,
 					virtualPath,
@@ -149,6 +170,7 @@ export function createVaultModuleLoader(
 
 		if (lower.endsWith(".vue")) {
 			const source = await readText(vaultPath);
+			validateNodeImportsForSource(source, ctx, true);
 			const compiled = compileSfc(source, { bundleImports: false });
 			const code = compiled.moduleCode.includes("return ")
 				? compiled.moduleCode
@@ -182,6 +204,7 @@ export function createVaultModuleLoader(
 
 		if (/\.(m?[jt]sx?)$/i.test(lower)) {
 			const source = await readText(vaultPath);
+			validateNodeImportsForSource(source, ctx, false);
 			const code = prepareScriptModule(source, vaultPath);
 			return {
 				canonicalId: id,

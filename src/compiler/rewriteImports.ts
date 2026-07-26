@@ -1,5 +1,6 @@
 import { rewriteGetThemeImportsInCode } from "./rewriteGetThemeImports";
 import { rewriteMathImportsInCode } from "./rewriteMathImports";
+import { rewriteNodeImportsInCode } from "./rewriteNodeImports";
 import { rewriteObsidianImportsInCode } from "./rewriteObsidianImports";
 
 export const VUE_IMPORT_RE =
@@ -26,11 +27,13 @@ export function rewriteVueImportsInCode(code: string): string {
 	});
 }
 
-/** Rewrites built-in `vue`, `@obsidian`, theme, and math imports for sandbox execution. */
+/** Rewrites built-in `vue`, `@obsidian`, theme, math, and `node:` imports for sandbox execution. */
 export function rewriteBuiltinImportsInCode(code: string): string {
-	return rewriteMathImportsInCode(
-		rewriteGetThemeImportsInCode(
-			rewriteObsidianImportsInCode(rewriteVueImportsInCode(code)),
+	return rewriteNodeImportsInCode(
+		rewriteMathImportsInCode(
+			rewriteGetThemeImportsInCode(
+				rewriteObsidianImportsInCode(rewriteVueImportsInCode(code)),
+			),
 		),
 	);
 }

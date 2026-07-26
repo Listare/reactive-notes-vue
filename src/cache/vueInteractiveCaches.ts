@@ -5,8 +5,9 @@ const compileCache = new Map<string, CompileSfcResult>();
 export function compileCacheKey(
 	sourcePath: string,
 	rawSource: string,
+	enableExtendedNodeBuiltins = false,
 ): string {
-	return `${sourcePath}\0${rawSource}`;
+	return `${sourcePath}\0${enableExtendedNodeBuiltins ? "1" : "0"}\0${rawSource}`;
 }
 
 export function getCachedCompile(

@@ -12,6 +12,10 @@ import { createVaultModuleLoader } from "../vault/vaultModuleLoader";
 import type { ReactiveNotesVueSettings } from "../settings";
 import { normalizeCustomScriptPath } from "../settings/normalizeCustomScriptPath";
 import { singleModuleStackRegion } from "../runtime/stackTrace";
+import {
+	collectNodeBuiltinSpecifiersFromSfc,
+	validateNodeBuiltinImports,
+} from "./validateNodeBuiltinImports";
 
 export interface CompileBlockContext {
 	app: App;
@@ -28,17 +32,28 @@ export async function compileSfcWithImports(
 	rawSource: string,
 	ctx: CompileBlockContext,
 ): Promise<CompileSfcResult> {
-	const cacheKey = compileCacheKey(ctx.sourcePath, rawSource);
+	const enableExtended = ctx.settings.enableExtendedNodeBuiltins;
+	const cacheKey = compileCacheKey(
+		ctx.sourcePath,
+		rawSource,
+		enableExtended,
+	);
 	const cached = getCachedCompile(cacheKey);
 	if (cached) {
 		return cached;
 	}
+
+	validateNodeBuiltinImports(
+		collectNodeBuiltinSpecifiersFromSfc(rawSource),
+		enableExtended,
+	);
 
 	const resolveCtx = {
 		fromPath: ctx.sourcePath,
 		customScriptPath: normalizeCustomScriptPath(
 			ctx.settings.customScriptPath,
 		),
+		enableExtendedNodeBuiltins: enableExtended,
 	};
 
 	const loader = createVaultModuleLoader(ctx.app, resolveCtx);

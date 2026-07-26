@@ -1,5 +1,6 @@
 import type { App } from "obsidian";
 import { ObsidianBridgeSession } from "./obsidian/ObsidianBridgeSession";
+import { NodeBridgeSession } from "./node/NodeBridgeSession";
 import { buildSandboxSrcdoc } from "./sandboxSrcdoc";
 import { getSandboxRunnerScript } from "./sandboxRunnerBundle";
 import { getSandboxTailwindCss } from "./sandboxTailwindBundle";
@@ -23,7 +24,8 @@ export class SandboxFrame {
 	private messageHandler: ((event: MessageEvent) => void) | null = null;
 	private requestCounter = 0;
 	private obsidianBridge: ObsidianBridgeSession | null = null;
-	private obsidianPortTransferred = false;
+	private nodeBridge: NodeBridgeSession | null = null;
+	private bridgePortsTransferred = false;
 	private activeRequestId: string | null = null;
 	private onRuntimeError: ((error: SandboxRuntimeError) => void) | null =
 		null;
@@ -64,6 +66,7 @@ export class SandboxFrame {
 
 		this.iframe = iframe;
 		this.obsidianBridge = new ObsidianBridgeSession(this.app);
+		this.nodeBridge = new NodeBridgeSession(false);
 
 		const awaitReady = (): Promise<void> =>
 			new Promise<void>((resolve, reject) => {
@@ -149,6 +152,7 @@ export class SandboxFrame {
 			scopeId: string;
 			theme: VueInteractiveTheme;
 			mathJaxPreamble: string;
+			enableExtendedNodeBuiltins: boolean;
 		},
 		onRuntimeError?: (error: SandboxRuntimeError) => void,
 	): Promise<void> {
@@ -163,12 +167,15 @@ export class SandboxFrame {
 		scopeId: string;
 		theme: VueInteractiveTheme;
 		mathJaxPreamble: string;
+		enableExtendedNodeBuiltins: boolean;
 	}): Promise<void> {
 		const iframe = this.iframe;
 		const targetWindow = iframe?.contentWindow;
 		if (!iframe || !targetWindow) {
 			return Promise.reject(new Error("沙盒 iframe 未就绪。"));
 		}
+
+		this.nodeBridge?.setAllowExtended(options.enableExtendedNodeBuiltins);
 
 		const requestId = `r${++this.requestCounter}`;
 		this.activeRequestId = requestId;
@@ -181,6 +188,7 @@ export class SandboxFrame {
 			scopeId: options.scopeId,
 			theme: options.theme,
 			mathJaxPreamble: options.mathJaxPreamble,
+			enableExtendedNodeBuiltins: options.enableExtendedNodeBuiltins,
 		};
 
 		return new Promise((resolve, reject) => {
@@ -223,9 +231,14 @@ export class SandboxFrame {
 
 			window.addEventListener("message", onMessage);
 			const transfer: MessagePort[] = [];
-			if (this.obsidianBridge && !this.obsidianPortTransferred) {
-				transfer.push(this.obsidianBridge.transferPort);
-				this.obsidianPortTransferred = true;
+			if (!this.bridgePortsTransferred) {
+				if (this.obsidianBridge) {
+					transfer.push(this.obsidianBridge.transferPort);
+				}
+				if (this.nodeBridge) {
+					transfer.push(this.nodeBridge.transferPort);
+				}
+				this.bridgePortsTransferred = true;
 			}
 			targetWindow.postMessage(message, "*", transfer);
 		});
@@ -269,7 +282,9 @@ export class SandboxFrame {
 		iframe?.remove();
 		this.obsidianBridge?.dispose();
 		this.obsidianBridge = null;
-		this.obsidianPortTransferred = false;
+		this.nodeBridge?.dispose();
+		this.nodeBridge = null;
+		this.bridgePortsTransferred = false;
 		this.iframe = null;
 		this.readyPromise = null;
 	}

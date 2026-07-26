@@ -56,7 +56,7 @@ button {
 
 - 必须包含 `<template>` 与 `<script setup>`；若未写 `lang`，会自动补上 `lang="ts"`。
 - 围栏可选属性（写在语言标识后）：`{name=名称}` 供 `?block=` 导入；`{hide=true}` 时阅读模式不渲染（仅作模块导出）。可组合，例如 ` ```vue-interactive {name=Chip, hide=true}`。
-- 支持从库内文件或 HTTPS URL 导入（见下方）；`vue`、Obsidian API（`@obsidian`）、主题（`@vue-interactive/theme`）与 MathJax（`@vue-interactive/math`）由插件内置，其余 npm 包可通过 ESM CDN URL 引入。
+- 支持从库内文件或 HTTPS URL 导入（见下方）；`vue`、Obsidian API（`@obsidian`）、主题（`@vue-interactive/theme`）、MathJax（`@vue-interactive/math`）与 Node 内置模块（仅 `node:` 前缀）由插件内置，其余 npm 包可通过 ESM CDN URL 引入。
 
 ### Obsidian API（`@obsidian`）
 
@@ -83,6 +83,29 @@ new Notice(`当前文件：${path}`);
 - `import app from '@obsidian'`：`default` 为当前库的 `App` 实例（`app.vault`、`app.workspace` 等）。
 - `import { Notice, Modal, … } from '@obsidian'`：与 `import { … } from 'obsidian'` 相同。
 - 亦支持 `import * as Obs from '@obsidian'`（`Obs.default` 为 `app`）。
+
+### Node 内置模块（`node:`）
+
+桌面端可通过 **`node:` 前缀**导入 Node 内置模块（不支持裸名 `path` / `fs`）。与 `@obsidian` 相同，经 MessageChannel 代理到宿主，**方法调用与取值均为异步**。
+
+```ts
+import { join } from "node:path";
+import http from "node:http";
+
+const p = await join("notes", "demo.md");
+
+// 所有调用都返回 Promise，传入其它 Node API 前必须 await
+const req = await http.get("http://example.com");
+```
+
+| 默认可用（安全子集） | 需在设置中开启「允许扩展 Node 内置模块」 |
+|----------------------|------------------------------------------|
+| `node:path`、`node:url`、`node:querystring`、`node:buffer`、`node:util`、`node:events`、`node:assert`、`node:string_decoder`、`node:timers`、`node:timers/promises`、`node:constants`、`node:punycode` 等 | `node:fs`、`node:fs/promises`、`node:os`、`node:crypto`、`node:child_process` 等其余 builtin |
+
+- 仅认 `node:`：`import { join } from 'node:path'`。
+- 同步风格的 Node API（如 `fs.readFileSync`）在沙盒中仍会变成异步 RPC；优先使用 `node:fs/promises`。
+- 不要对代理对象使用同步的 `String(proxy)`（`toString` 也是异步 RPC）；请 `await` 方法/属性拿到原始值。
+- 扩展模块会访问本机能力，请仅信任自己的笔记脚本。
 
 ### 文件导入
 

@@ -8,6 +8,11 @@ export interface ReactiveNotesVueSettings {
 	mathJaxPreamblePath: string;
 	/** Dark mode for vue-interactive blocks (Tailwind `dark:` / Obsidian theme vars). */
 	darkMode: DarkModePreference;
+	/**
+	 * When true, allow non-safe Node builtins (`node:fs`, etc.) via host bridge.
+	 * Default is safe subset only (`node:path`, `node:url`, …).
+	 */
+	enableExtendedNodeBuiltins: boolean;
 }
 
 export const DEFAULT_SETTINGS: ReactiveNotesVueSettings = {
@@ -15,4 +20,5 @@ export const DEFAULT_SETTINGS: ReactiveNotesVueSettings = {
 	customScriptPath: "",
 	mathJaxPreamblePath: "",
 	darkMode: "follow-obsidian",
+	enableExtendedNodeBuiltins: false,
 };

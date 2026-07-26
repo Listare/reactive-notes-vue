@@ -3,6 +3,7 @@ import type { Component } from "vue";
 import type { GetThemeSandboxModule } from "./getThemeSandboxModule";
 import type { MathSandboxModule } from "./mathSandboxModule";
 import type { ObsidianSandboxModule } from "./obsidian/proxyClient";
+import type { NodeSandboxModules } from "./node/proxyClient";
 import { buildModuleLoadBody } from "./moduleLoadBody";
 import {
 	enhanceModuleLoadError,
@@ -21,6 +22,8 @@ const EMPTY_GET_THEME: GetThemeSandboxModule = {
 const EMPTY_MATH: MathSandboxModule = {
 	Latex: { name: "Latex" },
 };
+
+const EMPTY_NODE: NodeSandboxModules = Object.create(null) as NodeSandboxModules;
 
 async function createImportUrl(): Promise<(url: string) => Promise<UrlModule>> {
 	const cache = Object.create(null) as Record<string, UrlModule>;
@@ -43,6 +46,7 @@ export async function executeModule(
 	obsidian: ObsidianSandboxModule = EMPTY_OBSIDIAN,
 	getThemeModule: GetThemeSandboxModule = EMPTY_GET_THEME,
 	mathModule: MathSandboxModule = EMPTY_MATH,
+	nodeModules: NodeSandboxModules = EMPTY_NODE,
 	stackRegions?: StackCodeRegion[],
 ): Promise<Component> {
 	const importUrl = await createImportUrl();
@@ -52,6 +56,7 @@ export async function executeModule(
 		obsidianModule: ObsidianSandboxModule,
 		getThemeModuleArg: GetThemeSandboxModule,
 		mathModuleArg: MathSandboxModule,
+		nodeModuleArg: NodeSandboxModules,
 	) => Promise<Component>;
 	try {
 		// Runs inside sandbox iframe only; strict mode + injected helpers limit globals.
@@ -62,6 +67,7 @@ export async function executeModule(
 			"__obsidian__",
 			"__getTheme__",
 			"__math__",
+			"__node__",
 			buildModuleLoadBody(moduleCode),
 		) as typeof fn;
 	} catch (e) {
@@ -73,6 +79,7 @@ export async function executeModule(
 		obsidian,
 		getThemeModule,
 		mathModule,
+		nodeModules,
 	);
 	if (result == null || typeof result !== "object") {
 		throw new Error("模块未导出有效的 Vue 组件。");
