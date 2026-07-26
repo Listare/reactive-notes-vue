@@ -78,7 +78,10 @@ export class ObsidianProxyHost {
 			}
 			return obj;
 		}
-		if (value === null || typeof value !== "object" || Array.isArray(value)) {
+		if (Array.isArray(value)) {
+			return value.map((item) => this.decodeArg(item));
+		}
+		if (value === null || typeof value !== "object") {
 			return value;
 		}
 		const out: Record<string, unknown> = {};

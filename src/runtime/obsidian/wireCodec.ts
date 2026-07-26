@@ -25,8 +25,12 @@ export function encodeWireValue(
 	if (t === "boolean" || t === "number" || t === "string") {
 		return value as boolean | number | string;
 	}
-	if (t === "bigint" || t === "symbol" || t === "function") {
+	if (t === "bigint" || t === "symbol") {
 		throw new Error("Obsidian API 返回值无法传入沙盒。");
+	}
+	// Sandbox ref proxies are callable (`typeof === "function"`).
+	if (t === "function") {
+		return encodeRef(value as object);
 	}
 	if (Array.isArray(value)) {
 		return value.map((item) => encodeWireValue(item, encodeRef));

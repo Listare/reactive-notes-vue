@@ -140,7 +140,10 @@ export function createObsidianSandboxModule(
 		if (isWireRef(value)) {
 			return createRefProxy(value.__ref);
 		}
-		if (value === null || typeof value !== "object" || Array.isArray(value)) {
+		if (Array.isArray(value)) {
+			return value.map((item) => decodeValue(item));
+		}
+		if (value === null || typeof value !== "object") {
 			return value;
 		}
 		const out: Record<string, unknown> = {};

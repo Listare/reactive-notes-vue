@@ -68,4 +68,66 @@ describe("createObsidianSandboxModule", () => {
 		const path = await (file as { path: Promise<string> }).path;
 		expect(path).toBe("notes/demo.md");
 	});
+
+	it("decodes array refs so files can be passed back to Obsidian APIs", async () => {
+		const filesByRef = new Map<number, { path: string }>([
+			[1, { path: "a.md" }],
+			[2, { path: "b.md" }],
+		]);
+		const port = createMockPort((msg) => {
+			if (msg.kind !== "obsidian-bridge-call") {
+				throw new Error("unexpected message");
+			}
+			if (
+				msg.target === "app" &&
+				msg.path.join(".") === "vault.getMarkdownFiles"
+			) {
+				return {
+					kind: "obsidian-bridge-result",
+					callId: msg.callId,
+					value: [{ __ref: 1 }, { __ref: 2 }],
+				};
+			}
+			if (
+				msg.target === "app" &&
+				msg.path.join(".") === "metadataCache.getFileCache"
+			) {
+				const arg = msg.args[0];
+				expect(arg).toEqual({ __ref: 1 });
+				return {
+					kind: "obsidian-bridge-result",
+					callId: msg.callId,
+					value: { frontmatter: { filename: "a" } },
+				};
+			}
+			if (
+				msg.target === "ref" &&
+				msg.path.join(".") === "path" &&
+				msg.refId != null
+			) {
+				const file = filesByRef.get(msg.refId);
+				return {
+					kind: "obsidian-bridge-result",
+					callId: msg.callId,
+					value: file?.path ?? null,
+				};
+			}
+			throw new Error(`unexpected call: ${msg.target}/${msg.path.join(".")}`);
+		});
+
+		const obsidian = createObsidianSandboxModule(port);
+		const app = obsidian.default as {
+			vault: { getMarkdownFiles: () => Promise<unknown[]> };
+			metadataCache: {
+				getFileCache: (file: unknown) => Promise<unknown>;
+			};
+		};
+
+		const files = await app.vault.getMarkdownFiles();
+		expect(files).toHaveLength(2);
+		expect(await (files[0] as { path: Promise<string> }).path).toBe("a.md");
+
+		const cache = await app.metadataCache.getFileCache(files[0]);
+		expect(cache).toEqual({ frontmatter: { filename: "a" } });
+	});
 });

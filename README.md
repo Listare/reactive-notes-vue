@@ -60,14 +60,25 @@ button {
 
 ### Obsidian API（`@obsidian`）
 
-在 `<script setup>` 中可像原生插件一样使用 Obsidian API，接口与 `obsidian` 包一致：
+在 `<script setup>` 中可像原生插件一样使用 Obsidian API，接口与 `obsidian` 包一致。用户代码跑在沙盒 iframe 内，对 `app` / 返回对象的访问经 MessageChannel 代理到主窗口，因此**取值与调用是异步的**（返回 `Promise`）；**链式点属性本身是同步的**（只拼路径，得到新的 Proxy）。
 
 ```ts
 import app from "@obsidian";
 import { Notice } from "@obsidian";
 
-new Notice(`当前文件：${app.workspace.getActiveFile()?.path ?? "无"}`);
+const file = await app.workspace.getActiveFile();
+const path = file ? await file.path : "无";
+new Notice(`当前文件：${path}`);
 ```
+
+| 写法 | 同步？ | 说明 |
+|------|--------|------|
+| `app.vault` / `cache.frontmatter` | 同步 | 只拼路径，拿到新的 Proxy |
+| `app.vault.getMarkdownFiles()` | 异步 | `()` 触发跨窗口调用，返回 `Promise` |
+| `await file.path` / `await cache.frontmatter` | 异步 | 属性 Proxy 可 `await`，才会真正取值 |
+| `getActiveFile()` 等返回的对象本身 | 同步拿到 Proxy | 根引用不是 thenable，避免 `await file` 死循环；读字段仍需 `await` |
+
+从 API 拿到的对象（如 `TFile`）可以再传回其他 Obsidian 方法（如 `getFileCache(file)`）；不要把沙盒里自造的普通对象当作 Obsidian 实例传入。
 
 - `import app from '@obsidian'`：`default` 为当前库的 `App` 实例（`app.vault`、`app.workspace` 等）。
 - `import { Notice, Modal, … } from '@obsidian'`：与 `import { … } from 'obsidian'` 相同。
