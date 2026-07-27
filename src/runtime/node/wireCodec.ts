@@ -60,8 +60,7 @@ function isBinaryBytes(value: object): value is Uint8Array | ArrayBufferView {
 function toUint8Array(value: object): Uint8Array {
 	if (value instanceof Uint8Array) return value;
 	if (typeof ArrayBuffer !== "undefined" && ArrayBuffer.isView(value)) {
-		const view = value as ArrayBufferView;
-		return new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+		return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
 	}
 	return Uint8Array.from(value as ArrayLike<number>);
 }

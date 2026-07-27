@@ -219,7 +219,7 @@ export class NodeProxyHost {
 	}
 }
 
-function awaitPromiseIfNeeded(value: unknown): unknown | Promise<unknown> {
+function awaitPromiseIfNeeded(value: unknown): unknown {
 	if (
 		value != null &&
 		(typeof value === "object" || typeof value === "function") &&

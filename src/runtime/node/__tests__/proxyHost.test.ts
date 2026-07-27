@@ -21,11 +21,11 @@ describe("NodeProxyHost", () => {
 			args: ["a", "b"],
 			construct: false,
 		});
-		expect(result).toEqual({
-			kind: "node-bridge-result",
-			callId: 1,
-			value: expect.stringMatching(/a[/\\]b/),
-		});
+		expect(result?.kind).toBe("node-bridge-result");
+		if (result?.kind === "node-bridge-result") {
+			expect(result.callId).toBe(1);
+			expect(result.value).toMatch(/a[/\\]b/);
+		}
 	});
 
 	it("rejects extended modules when disabled", async () => {
@@ -39,11 +39,11 @@ describe("NodeProxyHost", () => {
 			args: [],
 			construct: false,
 		});
-		expect(result).toEqual({
-			kind: "node-bridge-error",
-			callId: 2,
-			message: expect.stringContaining("允许扩展 Node 内置模块"),
-		});
+		expect(result?.kind).toBe("node-bridge-error");
+		if (result?.kind === "node-bridge-error") {
+			expect(result.callId).toBe(2);
+			expect(result.message).toContain("允许扩展 Node 内置模块");
+		}
 	});
 
 	it("allows extended modules when enabled", async () => {
@@ -60,17 +60,19 @@ describe("NodeProxyHost", () => {
 		} satisfies NodeBridgeInbound);
 		expect(result?.kind).toBe("node-bridge-result");
 		if (result?.kind === "node-bridge-result") {
-			expect(result.value).toEqual({ __ref: expect.any(Number) });
+			expect(result.value).toEqual(
+				expect.objectContaining({ __ref: expect.any(Number) as number }),
+			);
 		}
 	});
 
 	it("awaits promise results from fs/promises", async () => {
 		const host = new NodeProxyHost(true);
-		const { writeFileSync, unlinkSync } = await import("node:fs");
-		const { join } = await import("node:path");
-		const { tmpdir } = await import("node:os");
-		const file = join(tmpdir(), `rnv-node-bridge-${Date.now()}.txt`);
-		writeFileSync(file, "hello-bridge", "utf8");
+		const fs = await import("node:fs");
+		const path = await import("node:path");
+		const os = await import("node:os");
+		const file = path.join(os.tmpdir(), `rnv-node-bridge-${Date.now()}.txt`);
+		fs.writeFileSync(file, "hello-bridge", "utf8");
 		try {
 			const result = await host.handleMessage({
 				kind: "node-bridge-call",
@@ -87,7 +89,7 @@ describe("NodeProxyHost", () => {
 				value: "hello-bridge",
 			});
 		} finally {
-			unlinkSync(file);
+			fs.unlinkSync(file);
 		}
 	});
 
