@@ -1,6 +1,6 @@
 {
 	"name": "reactive-notes-vue",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"description": "Interactive Vue 3 components in Obsidian notes via vue-interactive code blocks.",
 	"main": "main.js",
 	"type": "module",
