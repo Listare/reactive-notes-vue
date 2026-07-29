@@ -60,16 +60,13 @@ function normalizeError(err: unknown): Error {
 	return err instanceof Error ? err : new Error(String(err));
 }
 
-function reportRuntimeError(err: unknown, detail?: string): void {
+function reportRuntimeError(err: unknown, _detail?: string): void {
 	if (!activeRender) return;
 	const error = normalizeError(err);
-	const message = detail
-		? `${error.message} (${detail})`
-		: error.message;
 	post({
 		type: "vue-sandbox-runtime-error",
 		requestId: activeRender.requestId,
-		message,
+		message: error.message,
 		stack:
 			rewriteRuntimeStack(error.stack, activeRender.stackRegions) ??
 			error.stack,

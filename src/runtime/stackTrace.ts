@@ -7,6 +7,19 @@ export interface StackCodeRegion {
 	codeStartLine: number;
 }
 
+/**
+ * How a reported line number relates to `moduleCode`.
+ * - `moduleBody`: line 1 is `"use strict"` from `buildModuleLoadBody` (Sucrase pre-check).
+ * - `v8Anonymous`: V8/`new Function` stack (`<anonymous>` / `about:srcdoc`), which
+ *   prefixes a 2-line `function anonymous(...\n) {` header before the body.
+ */
+export type StackLineCoordinate = "moduleBody" | "v8Anonymous";
+
+/** V8 `new Function` wraps the body as `function anonymous(...\n) {\n<body>}`. */
+export const NEW_FUNCTION_HEADER_LINES = 2;
+/** Prepended by `buildModuleLoadBody`. */
+export const MODULE_LOAD_STRICT_LINES = 1;
+
 export function blockNameFromCanonicalId(canonicalId: string): string | null {
 	const match = /\?block=([^&]+)/.exec(canonicalId);
 	if (match?.[1]) return decodeURIComponent(match[1]);
@@ -48,17 +61,25 @@ export interface ModuleLoadSourceLocation {
 	column: number;
 }
 
+function linesBeforeModuleCode(coordinate: StackLineCoordinate): number {
+	if (coordinate === "v8Anonymous") {
+		return NEW_FUNCTION_HEADER_LINES + MODULE_LOAD_STRICT_LINES;
+	}
+	return MODULE_LOAD_STRICT_LINES;
+}
+
 /**
- * Maps a 1-based line in the `new Function` body (line 1 = `"use strict"`) to vault source.
+ * Maps a reported 1-based line to vault source within `moduleCode`.
  */
 export function resolveModuleLoadLocation(
 	regions: StackCodeRegion[],
-	bodyLine: number,
+	reportedLine: number,
 	column: number,
+	coordinate: StackLineCoordinate = "v8Anonymous",
 ):
 	| (ModuleLoadSourceLocation & { region: StackCodeRegion })
 	| undefined {
-	const bundleLine = bodyLine - 1;
+	const bundleLine = reportedLine - linesBeforeModuleCode(coordinate);
 	if (bundleLine < 1 || regions.length === 0) return undefined;
 
 	const sorted = [...regions].sort(
@@ -144,6 +165,7 @@ export function enhanceModuleLoadError(
 		stackRegions,
 		pos.line,
 		pos.column,
+		"v8Anonymous",
 	);
 	if (!located) return base;
 
@@ -153,15 +175,13 @@ export function enhanceModuleLoadError(
 		located.column,
 	);
 	const err = new SyntaxError(`${base.message}\n位置: ${where}`);
-	err.stack =
-		rewriteRuntimeStack(base.stack, stackRegions) ??
-		`SyntaxError: ${err.message}`;
+	err.stack = undefined;
 	return err;
 }
 
 /**
  * Rewrites V8 `new Function` stack locations (`<anonymous>`, `about:srcdoc`, nested eval)
- * into `vaultPath:block:line:column`.
+ * into `vaultPath:block:line:column`, then drops plugin / Vue / host frames.
  */
 export function rewriteRuntimeStack(
 	stack: string | undefined,
@@ -169,7 +189,7 @@ export function rewriteRuntimeStack(
 ): string | undefined {
 	if (!stack || regions.length === 0) return stack;
 
-	return stack.replace(/^(\s*at\s.+)$/gm, (frame) => {
+	const rewritten = stack.replace(/^(\s*at\s.+)$/gm, (frame) => {
 		const locMatch = frame.match(
 			/(?:<anonymous>|about:srcdoc):(\d+):(\d+)\)?\s*$/,
 		);
@@ -177,7 +197,12 @@ export function rewriteRuntimeStack(
 
 		const stackLine = Number(locMatch[1]);
 		const column = Number(locMatch[2]);
-		const located = resolveModuleLoadLocation(regions, stackLine, column);
+		const located = resolveModuleLoadLocation(
+			regions,
+			stackLine,
+			column,
+			"v8Anonymous",
+		);
 		if (!located) return frame;
 
 		const location = formatStackLocation(
@@ -186,10 +211,62 @@ export function rewriteRuntimeStack(
 			located.column,
 		);
 		return frame.replace(
-			/\((?:eval at [^(]+ \([^)]+\), )?(?:<anonymous>|about:srcdoc):\d+:\d+\)\s*$/,
+			/\((?:eval at .+,\s*)?(?:<anonymous>|about:srcdoc):\d+:\d+\)\s*$/,
 			`(${location})`,
 		);
 	});
+
+	const filtered = filterUserStackFrames(rewritten, regions);
+	if (!/^\s*at\s+/m.test(filtered)) return undefined;
+	return filtered;
+}
+
+/**
+ * Keeps the error header and frames that point at vault user code; drops Vue / plugin internals.
+ */
+export function filterUserStackFrames(
+	stack: string,
+	regions: StackCodeRegion[],
+): string {
+	const vaultMarkers = [
+		...new Set(regions.map((r) => r.vaultPath).filter(Boolean)),
+	];
+	const lines = stack.split("\n");
+	const kept: string[] = [];
+
+	for (const line of lines) {
+		if (!/^\s*at\s+/.test(line)) {
+			kept.push(line);
+			continue;
+		}
+		if (isInternalStackFrame(line)) continue;
+		if (vaultMarkers.some((path) => line.includes(path))) {
+			kept.push(line);
+		}
+	}
+
+	return kept.join("\n").trimEnd();
+}
+
+function isInternalStackFrame(frame: string): boolean {
+	return (
+		/plugin:reactive-notes-vue/.test(frame) ||
+		/node_modules/.test(frame) ||
+		/[/\\]@vue[/\\]/.test(frame) ||
+		/vue\.runtime/.test(frame) ||
+		/runtime-core|runtime-dom/.test(frame) ||
+		/callWith(?:Async)?ErrorHandling/.test(frame) ||
+		/setupStatefulComponent|setupComponent|mountComponent|processComponent/.test(
+			frame,
+		) ||
+		/\binvoker\b/.test(frame) ||
+		/jsdom/.test(frame) ||
+		/sandboxRunner|executeModule|mountWithSuspense/.test(frame) ||
+		// Unmapped engine frames only (rewritten vault frames use `path:<anonymous>:L:C`).
+		/\((?:eval at .+,\s*)?(?:<anonymous>|about:srcdoc):\d+:\d+\)\s*$/.test(
+			frame,
+		)
+	);
 }
 
 function findRegion(

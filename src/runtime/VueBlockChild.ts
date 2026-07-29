@@ -9,6 +9,7 @@ import { applyThemeToElement } from "../theme/applyVueInteractiveTheme";
 import { resolveEffectiveTheme } from "../theme/getTheme";
 import { parseModuleLoadErrorLocation } from "../ui/parseModuleLoadError";
 import { renderError } from "../ui/renderError";
+import { isCompileTimeError } from "./formatDisplayError";
 import { validateModuleSyntax } from "./validateModuleSyntax";
 import { renderLoadingPlaceholder } from "../ui/renderLoadingPlaceholder";
 import { SandboxFrame } from "./sandboxFrame";
@@ -234,7 +235,8 @@ export class VueBlockChild extends MarkdownRenderChild {
 			}
 			const loc = parseModuleLoadErrorLocation(err.message);
 			renderError(this.containerEl, err.message, {
-				stack: err.stack,
+				// Compile/parse/transpile: message already has context; hide engine stacks.
+				stack: isCompileTimeError(err) ? undefined : err.stack,
 				loc,
 			});
 		} finally {

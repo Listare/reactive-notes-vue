@@ -47,7 +47,7 @@ function formatLocatedSyntaxError(
 		located.column,
 	);
 	const err = new SyntaxError(`${base.message}\n位置: ${where}`);
-	err.stack = err.stack ?? base.stack;
+	err.stack = undefined;
 	return err;
 }
 
@@ -61,6 +61,7 @@ function locateSucraseError(
 			stackRegions,
 			withLoc.loc.line,
 			withLoc.loc.column,
+			"moduleBody",
 		);
 	}
 
@@ -70,6 +71,7 @@ function locateSucraseError(
 			stackRegions,
 			Number(match[1]),
 			Number(match[2]),
+			"moduleBody",
 		);
 	}
 

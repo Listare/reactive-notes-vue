@@ -31,6 +31,7 @@
 | [[18 - Node内置模块]] | `node:path`（扩展模块需开设置） |
 | [[19 - Node扩展模块]] | `node:fs/promises` + `node:http`（需开扩展设置、联网） |
 | [[20 - Pinia]] | 全局共享 store、`persist` 到库内 JSON |
+| [[errors/00 - 索引]] | 错误合集：语法、导入语法、setup、点击、异步 setup、导入组件 setup |
 
 ## 插件文件
 

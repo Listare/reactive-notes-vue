@@ -1,3 +1,4 @@
+import { formatTranspileFailure } from "./formatTranspileFailure";
 import { transform } from "sucrase";
 
 export function transpileTypeScript(code: string, filePath: string): string {
@@ -13,7 +14,6 @@ export function transpileTypeScript(code: string, filePath: string): string {
 		});
 		return result.code;
 	} catch (e) {
-		const msg = e instanceof Error ? e.message : String(e);
-		throw new Error(`TypeScript 转译失败 (${filePath}): ${msg}`);
+		throw formatTranspileFailure(code, filePath, e);
 	}
 }
