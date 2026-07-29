@@ -32,10 +32,15 @@ function requireExpr(specifier: string, fromVaultPath: string, ctx: ResolvePathC
 	return `await __require__(${JSON.stringify(id)})`;
 }
 
-const SIDE_EFFECT_IMPORT_RE = /^\s*import\s+['"]([^'"]+)['"]\s*;?\s*$/gm;
+/**
+ * Match import statements even when Sucrase glues helpers onto the same line:
+ * `function _optionalChain(...){...}import { X } from './x.ts'`
+ * (line-anchored `^` would miss those and leave bare `import` for `new Function`).
+ */
+const SIDE_EFFECT_IMPORT_RE = /\bimport\s+['"]([^'"]+)['"]\s*;?/g;
 
 const NAMED_DEFAULT_IMPORT_RE =
-	/^\s*import\s+(type\s+)?((?:\*\s+as\s+(\w+))|(?:\{([^}]*)\})|(?:(\w+)\s*,\s*\{([^}]*)\})|(\w+))\s+from\s+['"]([^'"]+)['"]\s*;?\s*$/gm;
+	/\bimport\s+(type\s+)?((?:\*\s+as\s+(\w+))|(?:\{([^}]*)\})|(?:(\w+)\s*,\s*\{([^}]*)\})|(\w+))\s+from\s+['"]([^'"]+)['"]\s*;?/g;
 
 function rewriteNamedBinding(binding: string): string {
 	return binding

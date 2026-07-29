@@ -79,6 +79,25 @@ describe("rewriteModuleImports", () => {
 		expect(code).not.toContain("__importUrl__");
 	});
 
+	it("rewrites imports glued after Sucrase runtime helpers on the same line", () => {
+		const glued =
+			"function _optionalChain(ops) { return ops[0]; }import { Constraint, } from './solver.ts';\n" +
+			"import { resize } from '../../utils/array-helper.ts';\n" +
+			"return { Constraint, resize };";
+		const { code } = rewriteModuleImports(
+			glued,
+			".reactive-notes-scripts/simplex/solver/big-m-solver.ts",
+			{
+				fromPath: ".reactive-notes-scripts/simplex/solver/big-m-solver.ts",
+				customScriptPath: ".reactive-notes-scripts",
+			},
+		);
+		expect(code).toContain("await __require__(");
+		expect(code).toContain("Constraint");
+		expect(code).toContain("resize");
+		expect(code).not.toMatch(/\bimport\s+/);
+	});
+
 	it("falls back to default for vault named-only imports (Vue block)", () => {
 		const { code } = rewriteModuleImports(
 			`import { DistributionPanel } from './15 - 复杂场景.md?block=panel'\nreturn {}`,

@@ -30,4 +30,16 @@ describe("transpileTypeScript errors", () => {
 		expect(err).toBeInstanceOf(SyntaxError);
 		expect(err.message).toContain("boom");
 	});
+
+	it("keeps import on its own line after Sucrase optional-chain helpers", () => {
+		const source = [
+			"import { Constraint } from './solver.ts';",
+			"export function f(x?: { a?: number }) {",
+			"  return x?.a ?? Constraint.Equal;",
+			"}",
+		].join("\n");
+		const out = transpileTypeScript(source, "solver/big-m-solver.ts");
+		expect(out).toMatch(/\nimport\s+\{\s*Constraint/);
+		expect(out).not.toMatch(/\}import\b/);
+	});
 });
