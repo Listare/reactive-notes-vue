@@ -13,8 +13,9 @@ export interface EmitBundleResult {
 }
 
 /**
- * Wraps modules into one async body for sandbox `new Function` helpers including `__node__`.
+ * Wraps modules into one async body for sandbox `new Function` helpers including `__node__` and `__piniaFor__`.
  * Uses lazy `__require__` so dependency factories run before dependents.
+ * Each factory binds `__pinia__` to the module's vault path for relative `persist` paths.
  */
 export function emitBundle(
 	modules: BundledModuleRecord[],
@@ -46,7 +47,7 @@ export function emitBundle(
 			"  if (!factory) throw new Error('找不到模块: ' + id);",
 			"  const exports = {};",
 			"  __moduleCache__[id] = exports;",
-			"  const raw = await factory(__vue__, __require__, __importUrl__, __obsidian__, __getTheme__, __math__, __node__);",
+			"  const raw = await factory(__vue__, __require__, __importUrl__, __obsidian__, __getTheme__, __math__, __node__, __piniaFor__);",
 			"  const resolved = raw && typeof raw === 'object' && raw !== null && 'default' in raw",
 			"    ? raw",
 			"    : { default: raw };",
@@ -63,7 +64,10 @@ export function emitBundle(
 			ctx,
 		);
 		append(
-			`__moduleFactories__[${JSON.stringify(mod.canonicalId)}] = function(__vue__, __require__, __importUrl__, __obsidian__, __getTheme__, __math__, __node__) {`,
+			`__moduleFactories__[${JSON.stringify(mod.canonicalId)}] = function(__vue__, __require__, __importUrl__, __obsidian__, __getTheme__, __math__, __node__, __piniaFor__) {`,
+		);
+		append(
+			`const __pinia__ = __piniaFor__(${JSON.stringify(mod.vaultPath)});`,
 		);
 		append("return (async function() {");
 		append("const __export = await (async function() {");

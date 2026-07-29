@@ -16,6 +16,17 @@ describe("rewriteModuleImports", () => {
 		expect(code).not.toMatch(/import\s+.*from/);
 	});
 
+	it("leaves pinia imports to __pinia__", () => {
+		const { code, dependencyIds } = rewriteModuleImports(
+			`import { defineStore } from 'pinia'\nreturn {}`,
+			"notes/demo.md",
+			ctx,
+		);
+		expect(code).toContain("const { defineStore } = __pinia__");
+		expect(dependencyIds).toEqual([]);
+		expect(code).not.toMatch(/import\s+.*from/);
+	});
+
 	it("leaves @vue-interactive/theme imports to __getTheme__", () => {
 		const { code } = rewriteModuleImports(
 			`import { getTheme } from '@vue-interactive/theme'\nreturn {}`,

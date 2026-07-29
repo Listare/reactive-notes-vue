@@ -9,4 +9,12 @@ import DistributionChart from './DistributionChart.vue'
 `);
 		expect(specs).toEqual(["./DistributionChart.vue"]);
 	});
+
+	it("excludes pinia from vault dependency collection", () => {
+		const specs = collectImportsFromCode(`
+import { defineStore } from 'pinia'
+import x from './lib.js'
+`);
+		expect(specs).toEqual(["./lib.js"]);
+	});
 });

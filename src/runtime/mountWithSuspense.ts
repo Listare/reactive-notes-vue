@@ -1,10 +1,5 @@
-import {
-	createApp,
-	h,
-	Suspense,
-	type App,
-	type Component,
-} from "vue";
+import type { App, Component } from "vue";
+import { resolveSharedRuntime } from "./resolveSharedRuntime";
 
 export interface MountWithSuspenseOptions {
 	/** Called for errors after Suspense has already resolved (e.g. onMounted). */
@@ -20,12 +15,16 @@ export interface MountWithSuspenseResult {
 /**
  * Mount a component under `<Suspense>` so `<script setup>` top-level `await`
  * (async setup) can render. Sync setup resolves during `mount()`.
+ * Installs the shared Pinia instance so every interactive block shares stores.
  */
 export function mountWithSuspense(
 	component: Component,
 	container: Element,
 	options: MountWithSuspenseOptions = {},
 ): MountWithSuspenseResult {
+	const { Vue, pinia } = resolveSharedRuntime();
+	const { createApp, h, Suspense } = Vue;
+
 	let settleReady!: () => void;
 	let rejectReady!: (err: unknown) => void;
 	let settled = false;
@@ -60,6 +59,8 @@ export function mountWithSuspense(
 				);
 		},
 	});
+
+	app.use(pinia);
 
 	app.config.errorHandler = (err, _instance, info) => {
 		if (!settled) {

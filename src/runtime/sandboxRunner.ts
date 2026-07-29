@@ -1,7 +1,8 @@
 /**
  * Bundled to sandbox-runner.js (IIFE). Runs inside a sandboxed iframe (allow-scripts only).
+ * Vue is externalized and resolved from the host shared runtime (see esbuild banner).
  */
-import { ref, type App as VueApp, type Component, type Ref } from "vue";
+import type { App as VueApp, Component, Ref } from "vue";
 import { rewriteScopedCssForMountRoot, scopeDataAttribute } from "../compiler/rewriteScopedCss";
 import { applyThemeToElement } from "../theme/applyVueInteractiveTheme";
 import type { VueInteractiveTheme } from "../theme/getTheme";
@@ -12,6 +13,7 @@ import { createObsidianSandboxModule } from "./obsidian/proxyClient";
 import { createNodeSandboxModules } from "./node/proxyClient";
 import { executeModule } from "./executeModule";
 import { mountWithSuspense } from "./mountWithSuspense";
+import { resolveSharedRuntime } from "./resolveSharedRuntime";
 import { enhanceModuleLoadError, rewriteRuntimeStack } from "./stackTrace";
 import type { StackCodeRegion } from "./stackTrace";
 import type {
@@ -20,6 +22,8 @@ import type {
 	SandboxStyleChunk,
 } from "./sandboxProtocol";
 import { measureMountHeight } from "./measureMountHeight";
+
+const { Vue } = resolveSharedRuntime();
 
 let vueApp: VueApp | null = null;
 type ActiveRenderSession = {
@@ -32,7 +36,7 @@ let resizeObserver: ResizeObserver | null = null;
 let pendingResizeFrame = 0;
 let obsidianPort: MessagePort | null = null;
 let nodePort: MessagePort | null = null;
-const themeRef: Ref<VueInteractiveTheme> = ref("light");
+const themeRef: Ref<VueInteractiveTheme> = Vue.ref("light");
 
 function post(message: SandboxOutbound): void {
 	parent.postMessage(message, "*");

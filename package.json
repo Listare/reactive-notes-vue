@@ -20,6 +20,7 @@
 	"dependencies": {
 		"mathjax-full": "^3.2.2",
 		"obsidian": "latest",
+		"pinia": "^4.0.2",
 		"sucrase": "^3.35.1",
 		"vue": "^3.5.13"
 	},

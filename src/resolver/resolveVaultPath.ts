@@ -36,6 +36,9 @@ export function resolveVaultPath(
 	if (rawPath === "vue") {
 		throw new ImportPathError('内置模块 "vue" 不应走文件解析。');
 	}
+	if (rawPath === "pinia") {
+		throw new ImportPathError('内置模块 "pinia" 不应走文件解析。');
+	}
 	if (rawPath === "@obsidian" || rawPath === "obsidian") {
 		throw new ImportPathError('内置模块 "@obsidian" 不应走文件解析。');
 	}

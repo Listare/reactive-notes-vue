@@ -67,7 +67,7 @@ export async function compileSfcWithImports(
 	if (imports.length === 0) {
 		result = {
 			...compiled,
-			moduleCode,
+			moduleCode: `const __pinia__ = __piniaFor__(${JSON.stringify(ctx.sourcePath)});\n${moduleCode}`,
 			stackRegions: [
 				singleModuleStackRegion(ctx.sourcePath, entryCanonicalId(ctx.sourcePath)),
 			],

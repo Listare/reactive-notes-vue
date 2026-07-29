@@ -2,6 +2,7 @@ import { rewriteGetThemeImportsInCode } from "./rewriteGetThemeImports";
 import { rewriteMathImportsInCode } from "./rewriteMathImports";
 import { rewriteNodeImportsInCode } from "./rewriteNodeImports";
 import { rewriteObsidianImportsInCode } from "./rewriteObsidianImports";
+import { rewritePiniaImportsInCode } from "./rewritePiniaImports";
 
 export const VUE_IMPORT_RE =
 	/import\s*{\s*([^}]+)\s*}\s*from\s*['"]vue['"];?\s*/g;
@@ -27,12 +28,14 @@ export function rewriteVueImportsInCode(code: string): string {
 	});
 }
 
-/** Rewrites built-in `vue`, `@obsidian`, theme, math, and `node:` imports for sandbox execution. */
+/** Rewrites built-in `vue`, `pinia`, `@obsidian`, theme, math, and `node:` imports for sandbox execution. */
 export function rewriteBuiltinImportsInCode(code: string): string {
 	return rewriteNodeImportsInCode(
 		rewriteMathImportsInCode(
 			rewriteGetThemeImportsInCode(
-				rewriteObsidianImportsInCode(rewriteVueImportsInCode(code)),
+				rewritePiniaImportsInCode(
+					rewriteObsidianImportsInCode(rewriteVueImportsInCode(code)),
+				),
 			),
 		),
 	);

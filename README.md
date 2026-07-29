@@ -58,6 +58,33 @@ button {
 - 围栏可选属性（写在语言标识后）：`{name=名称}` 供 `?block=` 导入；`{hide=true}` 时阅读模式不渲染（仅作模块导出）。可组合，例如 ` ```vue-interactive {name=Chip, hide=true}`。
 - 支持从库内文件或 HTTPS URL 导入（见下方）；`vue`、Obsidian API（`@obsidian`）、主题（`@vue-interactive/theme`）、MathJax（`@vue-interactive/math`）与 Node 内置模块（仅 `node:` 前缀）由插件内置，其余 npm 包可通过 ESM CDN URL 引入。
 
+### Pinia（全局共享）
+
+插件在宿主维护**一份** Vue 与 **一个** Pinia 实例；所有 `vue-interactive` 块挂载时都会 `app.use` 该实例，因此笔记中任意可交互组件共享同一套 store。
+
+```ts
+import { defineStore, storeToRefs } from "pinia";
+
+const useCounter = defineStore("counter", {
+  state: () => ({ count: 0 }),
+  actions: {
+    inc() {
+      this.count++;
+    },
+  },
+  // 持久化到库内 JSON（路径规则与 import 相同）
+  persist: "./counter.json",
+  // 或：persist: { path: "@/state/counter.json", debounceMs: 500 }
+});
+
+const store = useCounter();
+const { count } = storeToRefs(store);
+```
+
+- 请使用内置 `pinia`，不要从 CDN 再引入一份（避免双 Vue / 双 Pinia）。
+- `defineStore` 的 id 在全局唯一；不同代码块用同一 id 即读写同一 store。
+- **`persist`**：把 `$state` 读写到仓库中的 `.json` 文件。路径支持 `./` / `../`（相对**定义该 store 的模块**所在文件）、`@/`（库根）、`@custom-script/`（设置中的脚本目录）。文件不存在时首次写入会自动创建；状态变更默认防抖 300ms 后写回。
+
 ### Obsidian API（`@obsidian`）
 
 在 `<script setup>` 中可像原生插件一样使用 Obsidian API，接口与 `obsidian` 包一致。用户代码跑在沙盒 iframe 内，对 `app` / 返回对象的访问经 MessageChannel 代理到主窗口，因此**取值与调用是异步的**（返回 `Promise`）；**链式点属性本身是同步的**（只拼路径，得到新的 Proxy）。

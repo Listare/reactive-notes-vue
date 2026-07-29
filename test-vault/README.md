@@ -30,6 +30,7 @@
 | [[17 - 异步setup]] | `<script setup>` 顶层 `await` 完成后仍渲染 |
 | [[18 - Node内置模块]] | `node:path`（扩展模块需开设置） |
 | [[19 - Node扩展模块]] | `node:fs/promises` + `node:http`（需开扩展设置、联网） |
+| [[20 - Pinia]] | 全局共享 store、`persist` 到库内 JSON |
 
 ## 插件文件
 

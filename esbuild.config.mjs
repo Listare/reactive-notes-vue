@@ -11,6 +11,35 @@ if you want to view the source, please visit the github repository of this plugi
 */
 `;
 
+/**
+ * Sandbox runner must use the host Vue instance (shared Pinia requires one Vue realm).
+ * Resolves `vue` to a CJS shim that reads `window.parent.__RN_VUE_SHARED__`.
+ */
+function vueFromParentPlugin() {
+	return {
+		name: "vue-from-parent",
+		setup(build) {
+			build.onResolve({ filter: /^vue$/ }, () => ({
+				path: "vue",
+				namespace: "vue-from-parent",
+			}));
+			build.onLoad(
+				{ filter: /.*/, namespace: "vue-from-parent" },
+				() => ({
+					contents: `
+const shared = window.parent && window.parent.__RN_VUE_SHARED__;
+if (!shared) {
+  throw new Error("Reactive Notes Vue: shared Vue/Pinia runtime missing on parent window");
+}
+module.exports = shared.Vue;
+`,
+					loader: "js",
+				}),
+			);
+		},
+	};
+}
+
 const prod = process.argv[2] === "production";
 const SANDBOX_RUNNER_OUT = "sandbox-runner.js";
 const SANDBOX_TAILWIND_OUT = "sandbox-tailwind.css";
@@ -41,6 +70,10 @@ const shimPlugin = {
 
 const defineEnv = {
 	"process.env.NODE_ENV": prod ? '"production"' : '"development"',
+	// Vue / Pinia compile-time flags (required when bundling into main.js)
+	__VUE_OPTIONS_API__: "true",
+	__VUE_PROD_DEVTOOLS__: "false",
+	__VUE_PROD_HYDRATION_MISMATCH_DETAILS__: "false",
 };
 
 let sandboxRunnerCode = "";
@@ -140,6 +173,7 @@ const runnerContext = await esbuild.context({
 	minify: prod,
 	define: defineEnv,
 	plugins: [
+		vueFromParentPlugin(),
 		{
 			name: "rebuild-main-after-runner",
 			setup(build) {

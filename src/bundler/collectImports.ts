@@ -2,6 +2,7 @@ import { isGetThemeBuiltinSpecifier } from "../builtin/isGetThemeBuiltin";
 import { isMathBuiltinSpecifier } from "../builtin/isMathBuiltin";
 import { isNodeBuiltinSpecifier } from "../builtin/isNodeBuiltin";
 import { isObsidianBuiltinSpecifier } from "../builtin/isObsidianBuiltin";
+import { isPiniaBuiltinSpecifier } from "../builtin/isPiniaBuiltin";
 
 /** Static import sources in JS/TS (excludes built-in modules). */
 const STATIC_IMPORT_RE =
@@ -23,6 +24,7 @@ export function collectImportsFromCode(code: string): string[] {
 		if (
 			spec &&
 			spec !== "vue" &&
+			!isPiniaBuiltinSpecifier(spec) &&
 			!isObsidianBuiltinSpecifier(spec) &&
 			!isGetThemeBuiltinSpecifier(spec) &&
 			!isMathBuiltinSpecifier(spec) &&

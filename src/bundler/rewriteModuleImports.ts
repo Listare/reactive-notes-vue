@@ -7,12 +7,14 @@ import { isGetThemeBuiltinSpecifier } from "../builtin/isGetThemeBuiltin";
 import { isMathBuiltinSpecifier } from "../builtin/isMathBuiltin";
 import { isNodeBuiltinSpecifier } from "../builtin/isNodeBuiltin";
 import { isObsidianBuiltinSpecifier } from "../builtin/isObsidianBuiltin";
+import { isPiniaBuiltinSpecifier } from "../builtin/isPiniaBuiltin";
 import {
 	rewriteBuiltinImportsInCode,
 	VUE_IMPORT_RE,
 } from "../compiler/rewriteImports";
 import { OBSIDIAN_SIDE_EFFECT_IMPORT_RE } from "../compiler/rewriteObsidianImports";
 import { NODE_SIDE_EFFECT_IMPORT_RE } from "../compiler/rewriteNodeImports";
+import { PINIA_SIDE_EFFECT_IMPORT_RE } from "../compiler/rewritePiniaImports";
 
 function toCanonicalId(
 	specifier: string,
@@ -76,6 +78,7 @@ function rewriteNamedBindingsWithDefaultFallback(
 function isBuiltinSpecifier(spec: string): boolean {
 	return (
 		spec === "vue" ||
+		isPiniaBuiltinSpecifier(spec) ||
 		isObsidianBuiltinSpecifier(spec) ||
 		isGetThemeBuiltinSpecifier(spec) ||
 		isMathBuiltinSpecifier(spec) ||
@@ -150,6 +153,7 @@ export function rewriteModuleImports(
 
 	// Remove any remaining built-in import lines missed by rewriteBuiltinImportsInCode
 	out = out.replace(VUE_IMPORT_RE, "");
+	out = out.replace(PINIA_SIDE_EFFECT_IMPORT_RE, "");
 	out = out.replace(OBSIDIAN_SIDE_EFFECT_IMPORT_RE, "");
 	out = out.replace(NODE_SIDE_EFFECT_IMPORT_RE, "");
 
