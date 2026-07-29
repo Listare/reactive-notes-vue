@@ -40,6 +40,14 @@ async function loadMathJaxModules(): Promise<void> {
 			import("mathjax-full/js/output/svg.js"),
 			import("mathjax-full/js/adaptors/liteAdaptor.js"),
 			import("mathjax-full/js/handlers/html.js"),
+			// Side-effect imports register TeX packages listed in TEX_PACKAGES.
+			import("mathjax-full/js/input/tex/ams/AmsConfiguration.js"),
+			import(
+				"mathjax-full/js/input/tex/noerrors/NoErrorsConfiguration.js"
+			),
+			import(
+				"mathjax-full/js/input/tex/noundefined/NoUndefinedConfiguration.js"
+			),
 			import(
 				"mathjax-full/js/input/tex/newcommand/NewcommandConfiguration.js"
 			),

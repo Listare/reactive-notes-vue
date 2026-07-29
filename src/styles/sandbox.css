@@ -16,6 +16,20 @@
 	height: auto;
 }
 
+/*
+ * MathJax SVG merror background and text both inherit fill="currentColor".
+ * Without these rules (normally from OutputJax.styleSheet), errors are invisible.
+ */
+.vue-interactive-latex g[data-mml-node="merror"] > g {
+	fill: #c00;
+	stroke: #c00;
+}
+
+.vue-interactive-latex g[data-mml-node="merror"] > rect[data-background] {
+	fill: #ff0;
+	stroke: none;
+}
+
 /* Tailwind `dark:` — same as ReactiveNotes: `.dark` on the block root. */
 @custom-variant dark (&:where(.dark, .dark *));
 
