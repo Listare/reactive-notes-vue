@@ -5,7 +5,7 @@ import { rewriteObsidianImportsInCode } from "./rewriteObsidianImports";
 import { rewritePiniaImportsInCode } from "./rewritePiniaImports";
 
 export const VUE_IMPORT_RE =
-	/import\s*{\s*([^}]+)\s*}\s*from\s*['"]vue['"];?\s*/g;
+	/import\s*{\s*([^}]+)\s*}\s*from\s*['"]vue['"];?(?:\r?\n)?/g;
 
 function parseSpecifier(spec: string): string {
 	const trimmed = spec.trim();

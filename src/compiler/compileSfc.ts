@@ -25,6 +25,11 @@ export interface CompileSfcResult {
 	stackRegions: StackCodeRegion[];
 	/** Vault paths of bundled local imports; empty when there are no imports. */
 	vaultDependencies: string[];
+	/**
+	 * 1-based emitted module line → original SFC line (before pinia/bundle wrappers).
+	 * Sparse; used to build `StackCodeRegion.originalLineByEmitted`.
+	 */
+	originalLineByEmitted: number[];
 }
 
 export interface CompileSfcError {
@@ -36,6 +41,7 @@ interface ScriptCompileResult {
 	content: string;
 	bindings?: object;
 	errors?: { message: string }[];
+	map?: import("source-map-js").RawSourceMap | null;
 }
 
 function compilerErrorMessage(error: string | { message?: string }): string {
@@ -92,6 +98,7 @@ function compileDescriptor(
 	const scriptResult = compileScript(descriptor, {
 		id: scopeId,
 		inlineTemplate: false,
+		sourceMap: true,
 	}) as unknown as ScriptCompileResult;
 
 	const scriptErrors = scriptResult.errors ?? [];
@@ -117,11 +124,13 @@ function compileDescriptor(
 		throw new Error(`模板编译失败: ${msg}`);
 	}
 
+	const assembled = assembleModule({
+		scriptContent: scriptResult.content,
+		templateCode: templateResult.code,
+		scriptSourceMap: scriptResult.map,
+	});
 	const moduleCode = transpileTypeScript(
-		assembleModule({
-			scriptContent: scriptResult.content,
-			templateCode: templateResult.code,
-		}),
+		assembled.code,
 		toTranspilePath("block.vue"),
 	);
 
@@ -133,6 +142,7 @@ function compileDescriptor(
 		styles,
 		stackRegions: [],
 		vaultDependencies: [],
+		originalLineByEmitted: assembled.originalLineByEmitted,
 	};
 }
 

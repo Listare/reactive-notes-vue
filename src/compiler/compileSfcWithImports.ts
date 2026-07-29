@@ -12,6 +12,7 @@ import { createVaultModuleLoader } from "../vault/vaultModuleLoader";
 import type { ReactiveNotesVueSettings } from "../settings";
 import { normalizeCustomScriptPath } from "../settings/normalizeCustomScriptPath";
 import { singleModuleStackRegion } from "../runtime/stackTrace";
+import { shiftLineMapDown } from "./sourceLineMap";
 import {
 	collectNodeBuiltinSpecifiersFromSfc,
 	validateNodeBuiltinImports,
@@ -65,11 +66,16 @@ export async function compileSfcWithImports(
 	let result: CompileSfcResult;
 
 	if (imports.length === 0) {
+		const piniaPrelude = `const __pinia__ = __piniaFor__(${JSON.stringify(ctx.sourcePath)});\n`;
 		result = {
 			...compiled,
-			moduleCode: `const __pinia__ = __piniaFor__(${JSON.stringify(ctx.sourcePath)});\n${moduleCode}`,
+			moduleCode: `${piniaPrelude}${moduleCode}`,
 			stackRegions: [
-				singleModuleStackRegion(ctx.sourcePath, entryCanonicalId(ctx.sourcePath)),
+				singleModuleStackRegion(
+					ctx.sourcePath,
+					entryCanonicalId(ctx.sourcePath),
+					shiftLineMapDown(compiled.originalLineByEmitted, 1),
+				),
 			],
 			vaultDependencies: [],
 		};
@@ -81,6 +87,7 @@ export async function compileSfcWithImports(
 				vaultPath: ctx.sourcePath,
 				code: moduleCode,
 				styles: compiled.styles,
+				originalLineByEmitted: compiled.originalLineByEmitted,
 			},
 			resolveCtx,
 			loader,
@@ -93,6 +100,7 @@ export async function compileSfcWithImports(
 			styles: bundled.styles,
 			stackRegions: bundled.stackRegions,
 			vaultDependencies: bundled.vaultDependencies,
+			originalLineByEmitted: compiled.originalLineByEmitted,
 		};
 	}
 

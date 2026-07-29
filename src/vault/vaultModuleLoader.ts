@@ -130,6 +130,7 @@ export function createVaultModuleLoader(
 						code,
 						styles: compiled.styles,
 						dependencies: collectImportsFromSfc(extracted.content),
+						originalLineByEmitted: compiled.originalLineByEmitted,
 					};
 				}
 				validateNodeImportsForSource(extracted.content, ctx, false);
@@ -181,6 +182,7 @@ export function createVaultModuleLoader(
 				code,
 				styles: compiled.styles,
 				dependencies: collectImportsFromSfc(source),
+				originalLineByEmitted: compiled.originalLineByEmitted,
 			};
 		}
 

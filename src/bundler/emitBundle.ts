@@ -77,6 +77,7 @@ export function emitBundle(
 			vaultPath: mod.vaultPath,
 			blockName: blockNameFromCanonicalId(mod.canonicalId),
 			codeStartLine,
+			originalLineByEmitted: mod.originalLineByEmitted,
 		});
 		append("})();");
 		append(

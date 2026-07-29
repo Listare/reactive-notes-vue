@@ -53,6 +53,7 @@ export async function bundleGraph(
 		vaultPath: string;
 		code: string;
 		styles: import("./types").BundledModuleRecord["styles"];
+		originalLineByEmitted?: number[];
 	},
 	ctx: ResolvePathContext,
 	loader: ModuleLoader,
@@ -86,6 +87,7 @@ export async function bundleGraph(
 		vaultPath: entry.vaultPath,
 		code: entry.code,
 		styles: [...entry.styles],
+		originalLineByEmitted: entry.originalLineByEmitted,
 	});
 	for (const spec of seedSpecifiers) {
 		enqueueSpecifier(spec, entry.vaultPath);
@@ -124,6 +126,7 @@ export async function bundleGraph(
 			vaultPath: loaded.vaultPath,
 			code: loaded.code,
 			styles: loaded.styles,
+			originalLineByEmitted: loaded.originalLineByEmitted,
 		});
 		allStyles.push(...loaded.styles);
 

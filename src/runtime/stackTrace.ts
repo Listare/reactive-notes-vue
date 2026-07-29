@@ -5,6 +5,11 @@ export interface StackCodeRegion {
 	blockName: string | null;
 	/** 1-based line in `moduleCode` where this region's executable code begins. */
 	codeStartLine: number;
+	/**
+	 * Sparse 1-based map: line within this region → original source line
+	 * (SFC / vault file). When missing, the region-relative emitted line is used.
+	 */
+	originalLineByEmitted?: number[];
 }
 
 /**
@@ -44,6 +49,7 @@ export function countLines(text: string): number {
 export function singleModuleStackRegion(
 	vaultPath: string,
 	canonicalId?: string,
+	originalLineByEmitted?: number[],
 ): StackCodeRegion {
 	return {
 		vaultPath,
@@ -51,6 +57,7 @@ export function singleModuleStackRegion(
 			? blockNameFromCanonicalId(canonicalId)
 			: null,
 		codeStartLine: 1,
+		originalLineByEmitted,
 	};
 }
 
@@ -88,14 +95,20 @@ export function resolveModuleLoadLocation(
 	const region = findRegion(sorted, bundleLine);
 	if (!region) return undefined;
 
-	const sourceLine = bundleLine - region.codeStartLine + 1;
-	if (sourceLine < 1) return undefined;
+	const sourceLineInRegion = bundleLine - region.codeStartLine + 1;
+	if (sourceLineInRegion < 1) return undefined;
+
+	const mappedOriginal = region.originalLineByEmitted?.[sourceLineInRegion];
+	const line =
+		mappedOriginal != null && mappedOriginal > 0
+			? mappedOriginal
+			: sourceLineInRegion;
 
 	return {
 		region,
 		vaultPath: region.vaultPath,
 		blockName: region.blockName,
-		line: sourceLine,
+		line,
 		column,
 	};
 }

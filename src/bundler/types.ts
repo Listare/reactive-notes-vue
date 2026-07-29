@@ -7,6 +7,8 @@ export interface BundledModuleRecord {
 	/** Executable body (imports not yet rewritten). */
 	code: string;
 	styles: CompiledStyle[];
+	/** Sparse 1-based map from region code line → original source line. */
+	originalLineByEmitted?: number[];
 }
 
 import type { StackCodeRegion } from "../runtime/stackTrace";
@@ -31,6 +33,7 @@ export interface LoadedModuleSource {
 	styles: CompiledStyle[];
 	/** Further imports found in this module's code. */
 	dependencies: string[];
+	originalLineByEmitted?: number[];
 }
 
 export interface ModuleLoader {

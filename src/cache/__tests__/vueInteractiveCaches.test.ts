@@ -16,6 +16,7 @@ describe("vueInteractiveCaches", () => {
 			scopeId: "s",
 			stackRegions: [],
 			vaultDependencies: [],
+			originalLineByEmitted: [],
 		};
 		setCachedCompile(key, value);
 		expect(getCachedCompile(key)).toBe(value);
@@ -33,6 +34,7 @@ describe("vueInteractiveCaches", () => {
 			scopeId: "s",
 			stackRegions: [],
 			vaultDependencies: [],
+			originalLineByEmitted: [],
 		};
 		setCachedCompile(a, stub);
 		setCachedCompile(b, stub);
