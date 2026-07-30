@@ -10,7 +10,8 @@ describe("renderLatexToHtml", () => {
 		await resetMathJaxForTests();
 	});
 
-	it("renders inline math to SVG markup", async () => {
+	// First prepareMathJax cold-loads mathjax-full (incl. AMS packages).
+	it("renders inline math to SVG markup", { timeout: 30_000 }, async () => {
 		await prepareMathJax("");
 		const html = renderLatexToHtml("x^2", false);
 		expect(html).toContain("<svg");

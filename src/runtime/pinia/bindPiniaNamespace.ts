@@ -24,7 +24,7 @@ export function bindPiniaNamespace(
 					: {}),
 				[PERSIST_FROM_PATH_KEY]: fromPath,
 			};
-			return (piniaNs.defineStore as DefineStore)(
+			return piniaNs.defineStore(
 				id,
 				setupOrOptions as never,
 				opts as never,
@@ -36,13 +36,13 @@ export function bindPiniaNamespace(
 				: {}),
 			[PERSIST_FROM_PATH_KEY]: fromPath,
 		};
-		return (piniaNs.defineStore as DefineStore)(id, opts as never);
+		return piniaNs.defineStore(id, opts as never);
 	}) as DefineStore;
 
 	return new Proxy(piniaNs, {
 		get(target, prop, receiver) {
 			if (prop === "defineStore") return defineStore;
-			return Reflect.get(target, prop, receiver);
+			return Reflect.get(target, prop, receiver) as unknown;
 		},
 	});
 }

@@ -132,14 +132,11 @@ export function getMathJaxDocument(): {
 	return { htmlDocument, adaptor };
 }
 
-/** @internal Resets cached engine state (tests). */
+/**
+ * @internal Resets engine/preamble state between tests.
+ * Keeps loaded MathJax modules — re-importing every test is slow and flaky.
+ */
 export async function resetMathJaxForTests(): Promise<void> {
 	appliedPreamble = "";
 	resetEngine();
-	modulesLoadPromise = null;
-	mathjax = null;
-	TeX = null;
-	SVG = null;
-	liteAdaptor = null;
-	RegisterHTMLHandler = null;
 }
