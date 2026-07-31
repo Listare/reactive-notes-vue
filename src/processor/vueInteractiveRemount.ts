@@ -16,6 +16,7 @@ import {
 	registerVueBlockInsertRemount,
 } from "../runtime/vueBlockRegistry";
 import { debounce } from "../utils/debounce";
+import { readVaultTextCoalesced } from "../vault/vaultFileAccess";
 import {
 	attachPreviewScrollListeners,
 	forEachMarkdownPreview,
@@ -47,7 +48,7 @@ export async function resolveVueBlockSource(
 	const file = plugin.app.vault.getAbstractFileByPath(sourcePath);
 	if (!(file instanceof TFile)) return null;
 
-	const markdown = await plugin.app.vault.read(file);
+	const markdown = await readVaultTextCoalesced(plugin.app, sourcePath);
 	const fromMarkdown = pickVueBlockSourceFromMarkdown(markdown, {
 		indexAttr: el.getAttr(DATA_VUE_BLOCK_INDEX),
 		previewIndex: root ? blockIndexInPreview(el, root) : undefined,

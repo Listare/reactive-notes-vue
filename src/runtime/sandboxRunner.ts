@@ -196,6 +196,7 @@ async function handleRender(
 		createMathSandboxModule(),
 		nodeModules,
 		msg.stackRegions,
+		msg.esmSources ?? {},
 	);
 	const mountEl = ensureMountElement();
 	applyScopeRoot(mountEl, msg.scopeId);

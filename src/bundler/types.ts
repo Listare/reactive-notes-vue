@@ -19,6 +19,8 @@ export interface BundleResult {
 	stackRegions: StackCodeRegion[];
 	/** Normalized vault paths of all bundled local imports (transitive). */
 	vaultDependencies: string[];
+	/** Absolute http(s) CDN / remote ESM URLs referenced by the bundle. */
+	urlDependencies: string[];
 }
 
 export interface ModuleLoadRequest {

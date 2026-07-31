@@ -75,6 +75,25 @@ export async function readVaultText(app: App, path: string): Promise<string> {
 	throw new Error(`找不到文件: ${path}`);
 }
 
+/** In-flight reads of the same path share one Promise (e.g. many blocks in one note). */
+const inFlightVaultReads = new Map<string, Promise<string>>();
+
+export function readVaultTextCoalesced(
+	app: App,
+	path: string,
+): Promise<string> {
+	const normalized = normalizeVaultPath(path);
+	const existing = inFlightVaultReads.get(normalized);
+	if (existing) return existing;
+	const pending = readVaultText(app, normalized).finally(() => {
+		if (inFlightVaultReads.get(normalized) === pending) {
+			inFlightVaultReads.delete(normalized);
+		}
+	});
+	inFlightVaultReads.set(normalized, pending);
+	return pending;
+}
+
 /** True when `readVaultText` failed because the path is missing. */
 export function isVaultFileNotFoundError(err: unknown): boolean {
 	return err instanceof Error && err.message.startsWith("找不到文件:");

@@ -20,6 +20,8 @@ export type SandboxInbound =
 			mathJaxPreamble: string;
 			/** Allow non-safe Node builtins via host bridge. */
 			enableExtendedNodeBuiltins: boolean;
+			/** Prefetched CDN module sources (url → body); empty when disk cache off. */
+			esmSources?: Record<string, string>;
 	  }
 	| { type: "vue-sandbox-unmount"; requestId: string }
 	| {
@@ -70,6 +72,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
+function isStringRecord(value: unknown): value is Record<string, string> {
+	if (!isRecord(value)) return false;
+	for (const entry of Object.values(value)) {
+		if (typeof entry !== "string") return false;
+	}
+	return true;
+}
+
 function isVueInteractiveTheme(value: unknown): value is VueInteractiveTheme {
 	return value === "dark" || value === "light";
 }
@@ -98,7 +108,9 @@ export function isSandboxInbound(data: unknown): data is SandboxInbound {
 				typeof data.scopeId === "string" &&
 				isVueInteractiveTheme(data.theme) &&
 				typeof data.mathJaxPreamble === "string" &&
-				typeof data.enableExtendedNodeBuiltins === "boolean"
+				typeof data.enableExtendedNodeBuiltins === "boolean" &&
+				(data.esmSources === undefined ||
+					isStringRecord(data.esmSources))
 			);
 		default:
 			return false;

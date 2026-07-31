@@ -154,5 +154,6 @@ return { setup() { return () => null } }
 		expect(result.moduleCode).toContain("__importUrl__");
 		expect(result.moduleCode).toContain(url);
 		expect(result.vaultDependencies).toEqual([]);
+		expect(result.urlDependencies).toEqual([url]);
 	});
 });

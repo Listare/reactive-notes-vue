@@ -11,6 +11,7 @@ import {
 	registerVueBlockIntersectionRemount,
 	registerVueInteractiveReadingRemount,
 } from "./vueInteractiveRemount";
+import { readVaultTextCoalesced } from "../vault/vaultFileAccess";
 export function registerVueInteractiveProcessor(
 	plugin: ReactiveNotesVuePlugin,
 ): void {
@@ -32,7 +33,7 @@ async function renderVueInteractiveBlock(
 	const file = plugin.app.vault.getAbstractFileByPath(ctx.sourcePath);
 	let markdown: string | undefined;
 	if (file instanceof TFile) {
-		markdown = await plugin.app.vault.read(file);
+		markdown = await readVaultTextCoalesced(plugin.app, ctx.sourcePath);
 		const fence = findVueInteractiveBlockByContent(markdown, source);
 		if (fence?.hide) {
 			el.addClass("vue-interactive-hidden");

@@ -41,5 +41,10 @@ test/e2e-vault/**/pinia-*.json
 # WDIO / Obsidian launcher cache
 .obsidian-cache
 
+# Plugin disk compile cache (vault-relative default)
+.cache/
+examples/.cache/
+test/e2e-vault/.cache/
+
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store

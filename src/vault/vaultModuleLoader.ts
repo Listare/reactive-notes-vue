@@ -1,7 +1,7 @@
 import { App } from "obsidian";
 import {
 	getVaultResourceUrl,
-	readVaultText,
+	readVaultTextCoalesced,
 	vaultPathExists,
 } from "./vaultFileAccess";
 import { compileSfc } from "../compiler/compileSfc";
@@ -27,6 +27,11 @@ import {
 	validateNodeBuiltinImports,
 } from "../compiler/validateNodeBuiltinImports";
 import {
+	lookupCachedLoadedModule,
+	setCachedLoadedModule,
+} from "../cache/vueInteractiveCaches";
+import { hashContent } from "../utils/hashContent";
+import {
 	canonicalModuleId,
 	classifyNamedBlockContent,
 	classifyVaultModule,
@@ -51,6 +56,37 @@ function validateNodeImportsForSource(
 	);
 }
 
+function enableExtendedFlag(ctx: ResolvePathContext): boolean {
+	return ctx.enableExtendedNodeBuiltins === true;
+}
+
+function rememberModule(
+	ctx: ResolvePathContext,
+	canonicalId: string,
+	contentHash: string,
+	module: LoadedModuleSource,
+): LoadedModuleSource {
+	setCachedLoadedModule(
+		canonicalId,
+		contentHash,
+		enableExtendedFlag(ctx),
+		module,
+	);
+	return module;
+}
+
+async function recallModule(
+	ctx: ResolvePathContext,
+	canonicalId: string,
+	contentHash: string,
+): Promise<LoadedModuleSource | undefined> {
+	return lookupCachedLoadedModule(
+		canonicalId,
+		contentHash,
+		enableExtendedFlag(ctx),
+	);
+}
+
 async function loadMarkdownModule(options: {
 	ctx: ResolvePathContext;
 	vaultPath: string;
@@ -61,18 +97,27 @@ async function loadMarkdownModule(options: {
 	const { ctx, vaultPath, id, block, readText } = options;
 	const md = await readText(vaultPath);
 	if (!block) {
-		return {
+		const contentHash = hashContent(md);
+		const cached = await recallModule(ctx, id, contentHash);
+		if (cached) return cached;
+		return rememberModule(ctx, id, contentHash, {
 			canonicalId: id,
 			vaultPath,
 			code: dataModuleCode(md),
 			styles: [],
 			dependencies: [],
-		};
+		});
 	}
 	const extracted = extractNamedCodeBlock(md, block);
 	if (!extracted) {
 		throw missingNamedBlockError(vaultPath, block);
 	}
+	const contentHash = hashContent(
+		`${extracted.lang}\0${extracted.content}`,
+	);
+	const cached = await recallModule(ctx, id, contentHash);
+	if (cached) return cached;
+
 	const contentKind = classifyNamedBlockContent(
 		extracted.lang,
 		isJsLikeLanguage(extracted.lang),
@@ -83,25 +128,25 @@ async function loadMarkdownModule(options: {
 		const compiled = compileSfc(extracted.content, {
 			bundleImports: false,
 		});
-		return {
+		return rememberModule(ctx, id, contentHash, {
 			canonicalId: id,
 			vaultPath,
 			code: wrapCompiledModuleCode(compiled.moduleCode),
 			styles: compiled.styles,
 			dependencies: collectImportsFromSfc(extracted.content),
 			originalLineByEmitted: compiled.originalLineByEmitted,
-		};
+		});
 	}
 	if (contentKind.kind === "script") {
 		const virtualPath = `${vaultPath}?block=${block}`;
 		validateNodeImportsForSource(extracted.content, ctx, false);
-		return {
+		return rememberModule(ctx, id, contentHash, {
 			canonicalId: id,
 			vaultPath,
 			code: prepareScriptModule(extracted.content, virtualPath),
 			styles: [],
 			dependencies: collectImportsFromCode(extracted.content),
-		};
+		});
 	}
 	let parsed: unknown = {
 		lang: extracted.lang,
@@ -113,20 +158,20 @@ async function loadMarkdownModule(options: {
 			`代码块 "${block}" JSON 解析失败`,
 		);
 	}
-	return {
+	return rememberModule(ctx, id, contentHash, {
 		canonicalId: id,
 		vaultPath,
 		code: dataModuleCode(parsed),
 		styles: [],
 		dependencies: [],
-	};
+	});
 }
 
 export function createVaultModuleLoader(
 	app: App,
 	ctx: ResolvePathContext,
 ): ModuleLoader {
-	const readText = (path: string) => readVaultText(app, path);
+	const readText = (path: string) => readVaultTextCoalesced(app, path);
 
 	const loadModule = async (
 		request: ModuleLoadRequest,
@@ -142,27 +187,33 @@ export function createVaultModuleLoader(
 		switch (kind.kind) {
 			case "css": {
 				const css = await readText(vaultPath);
+				const contentHash = hashContent(css);
+				const cached = await recallModule(ctx, id, contentHash);
+				if (cached) return cached;
 				const styles: CompiledStyle[] = [{ css, scoped: false }];
-				return {
+				return rememberModule(ctx, id, contentHash, {
 					canonicalId: id,
 					vaultPath,
 					code: "return {};",
 					styles,
 					dependencies: [],
-				};
+				});
 			}
 			case "binary": {
 				const url = await getVaultResourceUrl(app, vaultPath);
 				if (!url) {
 					throw missingBinaryResourceError(vaultPath);
 				}
-				return {
+				const contentHash = hashContent(url);
+				const cached = await recallModule(ctx, id, contentHash);
+				if (cached) return cached;
+				return rememberModule(ctx, id, contentHash, {
 					canonicalId: id,
 					vaultPath,
 					code: dataModuleCode(url),
 					styles: [],
 					dependencies: [],
-				};
+				});
 			}
 			case "markdown":
 				return loadMarkdownModule({
@@ -174,51 +225,63 @@ export function createVaultModuleLoader(
 				});
 			case "vue": {
 				const source = await readText(vaultPath);
+				const contentHash = hashContent(source);
+				const cached = await recallModule(ctx, id, contentHash);
+				if (cached) return cached;
 				validateNodeImportsForSource(source, ctx, true);
 				const compiled = compileSfc(source, { bundleImports: false });
-				return {
+				return rememberModule(ctx, id, contentHash, {
 					canonicalId: id,
 					vaultPath,
 					code: wrapCompiledModuleCode(compiled.moduleCode),
 					styles: compiled.styles,
 					dependencies: collectImportsFromSfc(source),
 					originalLineByEmitted: compiled.originalLineByEmitted,
-				};
+				});
 			}
 			case "json": {
 				const text = await readText(vaultPath);
+				const contentHash = hashContent(text);
+				const cached = await recallModule(ctx, id, contentHash);
+				if (cached) return cached;
 				const parsed = parseJsonModule(
 					text,
 					`JSON 解析失败 (${vaultPath})`,
 				);
-				return {
+				return rememberModule(ctx, id, contentHash, {
 					canonicalId: id,
 					vaultPath,
 					code: dataModuleCode(parsed),
 					styles: [],
 					dependencies: [],
-				};
+				});
 			}
 			case "script": {
 				const source = await readText(vaultPath);
+				const contentHash = hashContent(source);
+				const cached = await recallModule(ctx, id, contentHash);
+				if (cached) return cached;
 				validateNodeImportsForSource(source, ctx, false);
-				return {
+				return rememberModule(ctx, id, contentHash, {
 					canonicalId: id,
 					vaultPath,
 					code: prepareScriptModule(source, vaultPath),
 					styles: [],
 					dependencies: collectImportsFromCode(source),
-				};
+				});
 			}
 			case "text": {
 				const text = await readText(vaultPath);
-				return {
+				const contentHash = hashContent(text);
+				const cached = await recallModule(ctx, id, contentHash);
+				if (cached) return cached;
+				return rememberModule(ctx, id, contentHash, {
 					canonicalId: id,
 					vaultPath,
 					code: dataModuleCode(text),
 					styles: [],
 					dependencies: [],
-				};
+				});
 			}
 		}
 	};

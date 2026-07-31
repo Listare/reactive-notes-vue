@@ -156,6 +156,7 @@ export class SandboxFrame {
 			theme: VueInteractiveTheme;
 			mathJaxPreamble: string;
 			enableExtendedNodeBuiltins: boolean;
+			esmSources?: Record<string, string>;
 		},
 		onRuntimeError?: (error: SandboxRuntimeError) => void,
 	): Promise<void> {
@@ -171,6 +172,7 @@ export class SandboxFrame {
 		theme: VueInteractiveTheme;
 		mathJaxPreamble: string;
 		enableExtendedNodeBuiltins: boolean;
+		esmSources?: Record<string, string>;
 	}): Promise<void> {
 		const iframe = this.iframe;
 		const targetWindow = iframe?.contentWindow;
@@ -192,6 +194,7 @@ export class SandboxFrame {
 			theme: options.theme,
 			mathJaxPreamble: options.mathJaxPreamble,
 			enableExtendedNodeBuiltins: options.enableExtendedNodeBuiltins,
+			esmSources: options.esmSources ?? {},
 		};
 
 		return new Promise((resolve, reject) => {
@@ -255,6 +258,15 @@ export class SandboxFrame {
 
 	getIframe(): HTMLIFrameElement | null {
 		return this.iframe;
+	}
+
+	/** True when the iframe is connected and finished its ready handshake. */
+	isUsable(): boolean {
+		return (
+			this.iframe != null &&
+			this.iframe.isConnected &&
+			this.readyPromise != null
+		);
 	}
 
 	unmount(): void {

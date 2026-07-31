@@ -25,6 +25,8 @@ export interface CompileSfcResult {
 	stackRegions: StackCodeRegion[];
 	/** Vault paths of bundled local imports; empty when there are no imports. */
 	vaultDependencies: string[];
+	/** Absolute http(s) CDN imports; empty when none. */
+	urlDependencies: string[];
 	/**
 	 * 1-based emitted module line → original SFC line (before pinia/bundle wrappers).
 	 * Sparse; used to build `StackCodeRegion.originalLineByEmitted`.
@@ -141,6 +143,7 @@ function compileDescriptor(
 		styles,
 		stackRegions: [],
 		vaultDependencies: [],
+		urlDependencies: [],
 		originalLineByEmitted: assembled.originalLineByEmitted,
 	};
 }

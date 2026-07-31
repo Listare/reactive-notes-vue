@@ -5,6 +5,7 @@ import type {
 } from "./types";
 import { collectImportsFromCode } from "./collectImports";
 import { collectVaultDependencies } from "./collectVaultDependencies";
+import { collectUrlDependencies } from "./collectUrlDependencies";
 import { emitBundle } from "./emitBundle";
 import { parseImportSpecifier } from "../resolver/parseImportSpecifier";
 import {
@@ -162,5 +163,6 @@ export async function bundleGraph(
 			recordList,
 			entry.canonicalId,
 		),
+		urlDependencies: collectUrlDependencies(recordList),
 	};
 }

@@ -1,7 +1,7 @@
 import type { App } from "obsidian";
 import {
 	compileCacheKey,
-	getCachedCompile,
+	lookupCachedCompile,
 	setCachedCompile,
 } from "../cache/vueInteractiveCaches";
 import { bundleGraph } from "../bundler/bundleGraph";
@@ -29,19 +29,25 @@ function entryCanonicalId(sourcePath: string): string {
 	return `${sourcePath}#vue-interactive-entry`;
 }
 
+export type CompileBlockOutput = CompileSfcResult & { fromCache: boolean };
+
 export async function compileSfcWithImports(
 	rawSource: string,
 	ctx: CompileBlockContext,
-): Promise<CompileSfcResult> {
+): Promise<CompileBlockOutput> {
 	const enableExtended = ctx.settings.enableExtendedNodeBuiltins;
+	const customScriptPath = normalizeCustomScriptPath(
+		ctx.settings.customScriptPath,
+	);
 	const cacheKey = compileCacheKey(
 		ctx.sourcePath,
 		rawSource,
 		enableExtended,
+		customScriptPath,
 	);
-	const cached = getCachedCompile(cacheKey);
+	const cached = await lookupCachedCompile(cacheKey);
 	if (cached) {
-		return cached;
+		return { ...cached, fromCache: true };
 	}
 
 	validateNodeBuiltinImports(
@@ -51,9 +57,7 @@ export async function compileSfcWithImports(
 
 	const resolveCtx = {
 		fromPath: ctx.sourcePath,
-		customScriptPath: normalizeCustomScriptPath(
-			ctx.settings.customScriptPath,
-		),
+		customScriptPath,
 		enableExtendedNodeBuiltins: enableExtended,
 	};
 
@@ -100,10 +104,11 @@ export async function compileSfcWithImports(
 			styles: bundled.styles,
 			stackRegions: bundled.stackRegions,
 			vaultDependencies: bundled.vaultDependencies,
+			urlDependencies: bundled.urlDependencies,
 			originalLineByEmitted: compiled.originalLineByEmitted,
 		};
 	}
 
 	setCachedCompile(cacheKey, result);
-	return result;
+	return { ...result, fromCache: false };
 }

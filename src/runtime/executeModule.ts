@@ -12,6 +12,7 @@ import {
 } from "./stackTrace";
 import type { SharedVueRuntime } from "./sharedRuntimeTypes";
 import type { PiniaForPath } from "./pinia/bindPiniaNamespace";
+import { createImportUrl } from "./esm/createImportUrl";
 
 type UrlModule = Record<string, unknown>;
 type VueNamespace = SharedVueRuntime["Vue"];
@@ -28,22 +29,6 @@ const EMPTY_MATH: MathSandboxModule = {
 };
 
 const EMPTY_NODE: NodeSandboxModules = Object.create(null) as NodeSandboxModules;
-
-async function createImportUrl(): Promise<(url: string) => Promise<UrlModule>> {
-	const cache = Object.create(null) as Record<string, UrlModule>;
-	return async (url: string): Promise<UrlModule> => {
-		const cached = cache[url];
-		if (cached) {
-			return cached;
-		}
-		const mod = (await import(
-			/* @vite-ignore */
-			url
-		)) as UrlModule;
-		cache[url] = mod;
-		return mod;
-	};
-}
 
 /**
  * Bundled modules already receive `__piniaFor__` in each factory.
@@ -66,12 +51,13 @@ export async function executeModule(
 	mathModule: MathSandboxModule = EMPTY_MATH,
 	nodeModules: NodeSandboxModules = EMPTY_NODE,
 	stackRegions?: StackCodeRegion[],
+	esmSources: Readonly<Record<string, string>> = {},
 ): Promise<Component> {
 	const { Vue, Pinia } = resolveSharedRuntime();
 	const piniaFor: PiniaForPath = createPiniaForPath(Pinia);
 	const fromPath = stackRegions?.[0]?.vaultPath ?? "note.md";
 	const body = wrapModuleCodeWithPiniaBind(moduleCode, fromPath);
-	const importUrl = await createImportUrl();
+	const importUrl = createImportUrl(esmSources);
 	let fn: (
 		vue: VueNamespace,
 		importUrl: (url: string) => Promise<UrlModule>,

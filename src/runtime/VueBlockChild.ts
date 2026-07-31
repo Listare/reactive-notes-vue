@@ -35,17 +35,26 @@ import {
 	SANDBOX_TIMEOUT_BACKOFF_MS,
 	shouldBackoffOnSandboxTimeout,
 } from "./vueBlockSourceResolve";
+import { readVaultTextCoalesced } from "../vault/vaultFileAccess";
+import { prefetchEsmGraph } from "./esm/prefetchEsmGraph";
+import { resolveUrlDependencies } from "./esm/resolveUrlDependencies";
 
 export class VueBlockChild extends MarkdownRenderChild {
 	private sandbox: SandboxFrame | null = null;
 	private visibleBlockIndex = -1;
 	private pendingVaultRefresh = false;
+	private pendingRender: {
+		source: string;
+		markdownForIndex?: string;
+	} | null = null;
 	/** Bumped on each render start and on unload to drop stale async work. */
 	private renderEpoch = 0;
 	private renderBackoffUntil = 0;
 	/** Coalesces concurrent render/remount calls into one in-flight pass. */
 	private activeRender: Promise<void> | null = null;
 	private lastSource = "";
+	private sandboxHost: HTMLElement | null = null;
+	private runtimeErrorHost: HTMLElement | null = null;
 
 	constructor(
 		containerEl: HTMLElement,
@@ -68,11 +77,7 @@ export class VueBlockChild extends MarkdownRenderChild {
 		if (!this.lastSource) return;
 		if (!this.needsRemount()) return;
 
-		const file = this.plugin.app.vault.getAbstractFileByPath(this.sourcePath);
-		let markdown: string | undefined;
-		if (file instanceof TFile) {
-			markdown = await this.plugin.app.vault.read(file);
-		}
+		const markdown = await this.readHostMarkdown();
 		await this.scheduleRender(this.lastSource, markdown);
 	}
 
@@ -105,20 +110,34 @@ export class VueBlockChild extends MarkdownRenderChild {
 		return resolveEffectiveTheme(this.plugin.settings.darkMode);
 	}
 
+	private async readHostMarkdown(): Promise<string | undefined> {
+		const file = this.plugin.app.vault.getAbstractFileByPath(this.sourcePath);
+		if (!(file instanceof TFile)) return undefined;
+		return readVaultTextCoalesced(this.plugin.app, this.sourcePath);
+	}
+
+	private async resolveVaultRenderSource(): Promise<{
+		source: string;
+		markdown: string;
+	} | null> {
+		const markdown = await this.readHostMarkdown();
+		if (markdown == null) return null;
+		const blocks = listVisibleVueInteractiveBlocks(markdown);
+		const source = this.resolveSourceForRefresh(blocks);
+		if (source == null) return null;
+		return { source, markdown };
+	}
+
 	/** Re-reads the host note and re-renders (e.g. after an imported file changes). */
 	async refreshFromVault(): Promise<void> {
 		if (this.activeRender) {
 			this.pendingVaultRefresh = true;
-			return;
+			return this.activeRender;
 		}
-		const file = this.plugin.app.vault.getAbstractFileByPath(this.sourcePath);
-		if (!(file instanceof TFile)) return;
-		const markdown = await this.plugin.app.vault.read(file);
-		const blocks = listVisibleVueInteractiveBlocks(markdown);
-		const source = this.resolveSourceForRefresh(blocks);
-		if (source == null) return;
+		const resolved = await this.resolveVaultRenderSource();
+		if (!resolved) return;
 		invalidateCompileCacheForNote(this.sourcePath);
-		await this.render(source, markdown);
+		return this.scheduleRender(resolved.source, resolved.markdown);
 	}
 
 	async render(source: string, markdownForIndex?: string): Promise<void> {
@@ -129,11 +148,80 @@ export class VueBlockChild extends MarkdownRenderChild {
 		source: string,
 		markdownForIndex?: string,
 	): Promise<void> {
-		if (this.activeRender) return this.activeRender;
-		this.activeRender = this.doRender(source, markdownForIndex).finally(() => {
-			this.activeRender = null;
-		});
+		if (this.activeRender) {
+			this.pendingRender = { source, markdownForIndex };
+			return this.activeRender;
+		}
+		this.activeRender = this.drainRenderQueue(source, markdownForIndex).finally(
+			() => {
+				this.activeRender = null;
+			},
+		);
 		return this.activeRender;
+	}
+
+	private async drainRenderQueue(
+		source: string,
+		markdownForIndex?: string,
+	): Promise<void> {
+		let nextSource = source;
+		let nextMarkdown = markdownForIndex;
+		for (;;) {
+			await this.doRender(nextSource, nextMarkdown);
+			if (this.pendingVaultRefresh) {
+				this.pendingVaultRefresh = false;
+				this.pendingRender = null;
+				const resolved = await this.resolveVaultRenderSource();
+				if (!resolved) break;
+				invalidateCompileCacheForNote(this.sourcePath);
+				nextSource = resolved.source;
+				nextMarkdown = resolved.markdown;
+				continue;
+			}
+			if (this.pendingRender) {
+				const pending = this.pendingRender;
+				this.pendingRender = null;
+				nextSource = pending.source;
+				nextMarkdown = pending.markdownForIndex;
+				continue;
+			}
+			break;
+		}
+	}
+
+	private ensureHosts(reuseSandbox: boolean): {
+		host: HTMLElement;
+		runtimeErrorHost: HTMLElement;
+	} {
+		if (
+			reuseSandbox &&
+			this.sandboxHost?.isConnected &&
+			this.runtimeErrorHost?.isConnected
+		) {
+			this.runtimeErrorHost.empty();
+			this.runtimeErrorHost.removeClass("vue-interactive-error");
+			return {
+				host: this.sandboxHost,
+				runtimeErrorHost: this.runtimeErrorHost,
+			};
+		}
+
+		this.teardownSandbox();
+		this.containerEl.empty();
+		this.containerEl.addClass("vue-interactive-root");
+		registerVueBlock(this.containerEl, this);
+		this.applyThemeClass();
+
+		this.sandboxHost = this.containerEl.createDiv({
+			cls: "vue-interactive-sandbox-host",
+		});
+		this.runtimeErrorHost = this.containerEl.createDiv({
+			cls: "vue-interactive-runtime-error-host",
+		});
+		return {
+			host: this.sandboxHost,
+			runtimeErrorHost: this.runtimeErrorHost,
+		};
 	}
 
 	private async doRender(
@@ -154,21 +242,19 @@ export class VueBlockChild extends MarkdownRenderChild {
 			this.visibleBlockIndex,
 		);
 		clearVueSandboxAlive(this.containerEl);
-		this.teardownSandbox();
+
+		const reuseSandbox = this.sandbox?.isUsable() === true;
+		if (!reuseSandbox) {
+			this.teardownSandbox();
+		}
 		if (this.abortRenderIfStale(epoch)) return;
 
-		this.containerEl.empty();
-		this.containerEl.addClass("vue-interactive-root");
-		registerVueBlock(this.containerEl, this);
+		const { host, runtimeErrorHost } = this.ensureHosts(reuseSandbox);
 		this.applyThemeClass();
 
-		const host = this.containerEl.createDiv({
-			cls: "vue-interactive-sandbox-host",
-		});
-		const runtimeErrorHost = this.containerEl.createDiv({
-			cls: "vue-interactive-runtime-error-host",
-		});
-		const placeholder = renderLoadingPlaceholder(host);
+		const placeholder = reuseSandbox
+			? null
+			: renderLoadingPlaceholder(host);
 
 		try {
 			const compiled = await compileSfcWithImports(source, {
@@ -178,11 +264,28 @@ export class VueBlockChild extends MarkdownRenderChild {
 			});
 			if (this.abortRenderIfStale(epoch)) return;
 			setVueBlockVaultDependencies(this, compiled.vaultDependencies);
-			validateModuleSyntax(compiled.moduleCode, compiled.stackRegions);
-			const sandbox = new SandboxFrame(host, this.plugin.app);
-			this.sandbox = sandbox;
-			await sandbox.init();
+			if (!compiled.fromCache) {
+				validateModuleSyntax(compiled.moduleCode, compiled.stackRegions);
+			}
+
+			const esmSources = this.plugin.settings.enableDiskCache
+				? await prefetchEsmGraph(
+						resolveUrlDependencies({
+							urlDependencies: compiled.urlDependencies,
+							moduleCode: compiled.moduleCode,
+						}),
+					)
+				: {};
 			if (this.abortRenderIfStale(epoch)) return;
+
+			let sandbox = this.sandbox;
+			if (!reuseSandbox || !sandbox?.isUsable()) {
+				sandbox = new SandboxFrame(host, this.plugin.app);
+				this.sandbox = sandbox;
+				await sandbox.init();
+			}
+			if (this.abortRenderIfStale(epoch)) return;
+
 			const theme = this.currentTheme();
 			const mathJaxPreamble = await loadMathJaxPreamble(
 				this.plugin.app,
@@ -199,6 +302,7 @@ export class VueBlockChild extends MarkdownRenderChild {
 					mathJaxPreamble,
 					enableExtendedNodeBuiltins:
 						this.plugin.settings.enableExtendedNodeBuiltins,
+					esmSources,
 				},
 				(error) => {
 					const loc = parseModuleLoadErrorLocation(error.message);
@@ -209,13 +313,16 @@ export class VueBlockChild extends MarkdownRenderChild {
 					});
 				},
 			);
-			placeholder.remove();
+			placeholder?.remove();
 			markVueSandboxAlive(this.containerEl);
 		} catch (e) {
 			if (this.abortRenderIfStale(epoch)) return;
 			if (isSandboxAbortedError(e)) return;
 			clearVueSandboxAlive(this.containerEl);
 			clearVueBlockVaultDependencies(this);
+			this.teardownSandbox();
+			this.sandboxHost = null;
+			this.runtimeErrorHost = null;
 			const err = e instanceof Error ? e : new Error(String(e));
 			if (shouldBackoffOnSandboxTimeout(err.message)) {
 				this.renderBackoffUntil = Date.now() + SANDBOX_TIMEOUT_BACKOFF_MS;
@@ -225,11 +332,6 @@ export class VueBlockChild extends MarkdownRenderChild {
 				stack: isCompileTimeError(err) ? undefined : err.stack,
 				loc,
 			});
-		} finally {
-			if (this.pendingVaultRefresh) {
-				this.pendingVaultRefresh = false;
-				await this.refreshFromVault();
-			}
 		}
 	}
 
@@ -251,6 +353,8 @@ export class VueBlockChild extends MarkdownRenderChild {
 	private abortRenderIfStale(epoch: number): boolean {
 		if (!isRenderEpochStale(epoch, this.renderEpoch)) return false;
 		this.teardownSandbox();
+		this.sandboxHost = null;
+		this.runtimeErrorHost = null;
 		return true;
 	}
 
@@ -275,6 +379,8 @@ export class VueBlockChild extends MarkdownRenderChild {
 		);
 		clearVueBlockVaultDependencies(this);
 		this.teardownSandbox();
+		this.sandboxHost = null;
+		this.runtimeErrorHost = null;
 		this.restoreLoadingShellAfterUnload();
 	}
 
@@ -294,6 +400,7 @@ export class VueBlockChild extends MarkdownRenderChild {
 				cls: "vue-interactive-sandbox-host",
 			});
 		}
+		this.sandboxHost = host;
 		renderLoadingPlaceholder(host);
 	}
 }

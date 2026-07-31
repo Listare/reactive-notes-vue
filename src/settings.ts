@@ -1,4 +1,5 @@
 import type { DarkModePreference } from "./settings/darkMode";
+import { DEFAULT_DISK_CACHE_PATH } from "./settings/normalizeDiskCachePath";
 
 export interface ReactiveNotesVueSettings {
 	enabled: boolean;
@@ -13,6 +14,10 @@ export interface ReactiveNotesVueSettings {
 	 * Default is safe subset only (`node:path`, `node:url`, …).
 	 */
 	enableExtendedNodeBuiltins: boolean;
+	/** Persist compile/module caches under `diskCachePath` (off by default). */
+	enableDiskCache: boolean;
+	/** Vault-relative folder for on-disk caches (default `.cache`). */
+	diskCachePath: string;
 }
 
 export const DEFAULT_SETTINGS: ReactiveNotesVueSettings = {
@@ -21,4 +26,6 @@ export const DEFAULT_SETTINGS: ReactiveNotesVueSettings = {
 	mathJaxPreamblePath: "",
 	darkMode: "follow-obsidian",
 	enableExtendedNodeBuiltins: false,
+	enableDiskCache: false,
+	diskCachePath: DEFAULT_DISK_CACHE_PATH,
 };

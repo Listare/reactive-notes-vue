@@ -1,10 +1,15 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type ReactiveNotesVuePlugin from "../main";
+import { clearAllVueInteractiveCaches } from "../cache/vueInteractiveCaches";
 import {
 	DARK_MODE_OPTIONS,
 	type DarkModePreference,
 } from "../settings/darkMode";
 import { normalizeCustomScriptPath } from "../settings/normalizeCustomScriptPath";
+import {
+	DEFAULT_DISK_CACHE_PATH,
+	normalizeDiskCachePath,
+} from "../settings/normalizeDiskCachePath";
 import { normalizeMathJaxPreamblePath } from "../settings/normalizeMathJaxPreamblePath";
 import { refreshVueInteractiveBlocksForMathJax } from "../math/refreshMathJaxBlocks";
 import { applyVueInteractiveThemeSync } from "../theme/registerObsidianThemeSync";
@@ -82,6 +87,64 @@ export class ReactiveNotesVueSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.enableExtendedNodeBuiltins = value;
 						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("启用磁盘缓存")
+			.setDesc(
+				"将编译结果与 ESM CDN 模块缓存到库内文件夹，重启后可跳过重复编译与下载。默认关闭。",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.enableDiskCache)
+					.onChange(async (value) => {
+						this.plugin.settings.enableDiskCache = value;
+						await this.plugin.saveSettings();
+						this.display();
+					}),
+			);
+
+		const diskPathSetting = new Setting(containerEl)
+			.setName("磁盘缓存路径")
+			.setDesc(
+				`库内文件夹路径（默认 ${DEFAULT_DISK_CACHE_PATH}）。缓存写入该目录下的 reactive-notes-vue/ 子文件夹。`,
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder(DEFAULT_DISK_CACHE_PATH)
+					.setValue(this.plugin.settings.diskCachePath)
+					.setDisabled(!this.plugin.settings.enableDiskCache)
+					.onChange(async (value) => {
+						this.plugin.settings.diskCachePath =
+							normalizeDiskCachePath(value);
+						await this.plugin.saveSettings();
+					}),
+			);
+		if (!this.plugin.settings.enableDiskCache) {
+			diskPathSetting.setDisabled(true);
+		}
+
+		new Setting(containerEl)
+			.setName("清除磁盘缓存")
+			.setDesc("清空内存缓存，并删除磁盘缓存路径下的插件缓存文件夹。")
+			.addButton((button) =>
+				button
+					.setButtonText("清除缓存")
+					.setWarning()
+					.onClick(async () => {
+						button.setDisabled(true);
+						try {
+							await clearAllVueInteractiveCaches();
+							new Notice("已清除 vue-interactive 缓存。");
+						} catch (e) {
+							const err =
+								e instanceof Error ? e : new Error(String(e));
+							console.error("clear disk cache failed", err);
+							new Notice(`清除缓存失败：${err.message}`);
+						} finally {
+							button.setDisabled(false);
+						}
 					}),
 			);
 	}
