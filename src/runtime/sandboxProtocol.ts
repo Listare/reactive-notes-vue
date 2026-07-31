@@ -27,7 +27,8 @@ export type SandboxInbound =
 			requestId: string;
 			theme: VueInteractiveTheme;
 	  }
-	| { type: "vue-sandbox-resync-ready" };
+	| { type: "vue-sandbox-resync-ready" }
+	| { type: "vue-sandbox-remeasure"; requestId: string };
 
 /** Sandbox iframe → parent */
 export type SandboxOutbound =
@@ -45,4 +46,5 @@ export type SandboxOutbound =
 			message: string;
 			stack?: string;
 	  }
-	| { type: "vue-sandbox-resize"; requestId: string; height: number };
+	| { type: "vue-sandbox-resize"; requestId: string; height: number }
+	| { type: "vue-sandbox-prepare-measure"; requestId: string };

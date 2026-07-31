@@ -6,7 +6,8 @@ export function buildSandboxSrcdoc(
 	const safeScript = runnerScript.replace(/<\/script/gi, "<\\/script");
 	const safeCss = tailwindCss.replace(/<\/style/gi, "<\\/style");
 	const resetCss =
-		"html,body{margin:0;padding:0;overflow:hidden;height:auto}";
+		"html,body{margin:0;padding:0;overflow:hidden;height:auto}" +
+		"#vue-interactive-mount{display:flow-root}";
 	const styleBlock = [
 		`<style data-vue-interactive="reset">${resetCss}</style>`,
 		safeCss

@@ -119,6 +119,18 @@ export class SandboxFrame {
 		this.messageHandler = (event: MessageEvent) => {
 			if (event.source !== iframe.contentWindow) return;
 			const data = event.data as SandboxOutbound;
+			if (data?.type === "vue-sandbox-prepare-measure") {
+				// 1px (not 0): some engines report scrollHeight 0 for a 0-tall frame.
+				iframe.style.height = "1px";
+				iframe.contentWindow?.postMessage(
+					{
+						type: "vue-sandbox-remeasure",
+						requestId: data.requestId,
+					} satisfies SandboxInbound,
+					"*",
+				);
+				return;
+			}
 			if (data?.type === "vue-sandbox-resize") {
 				iframe.style.height = `${Math.max(data.height, 1)}px`;
 				return;

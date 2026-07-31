@@ -130,6 +130,11 @@ function reportResize(requestId: string): void {
 	post({ type: "vue-sandbox-resize", requestId, height });
 }
 
+function requestMeasure(requestId: string): void {
+	// Ask the host to collapse the iframe first so document scrollHeight can shrink.
+	post({ type: "vue-sandbox-prepare-measure", requestId });
+}
+
 function scheduleReportResize(requestId: string): void {
 	if (pendingResizeFrame) {
 		cancelAnimationFrame(pendingResizeFrame);
@@ -137,7 +142,7 @@ function scheduleReportResize(requestId: string): void {
 	pendingResizeFrame = requestAnimationFrame(() => {
 		pendingResizeFrame = requestAnimationFrame(() => {
 			pendingResizeFrame = 0;
-			reportResize(requestId);
+			requestMeasure(requestId);
 		});
 	});
 }
@@ -153,7 +158,7 @@ function watchResize(requestId: string): void {
 		scheduleReportResize(requestId);
 	});
 	resizeObserver.observe(mount);
-	reportResize(requestId);
+	requestMeasure(requestId);
 	scheduleReportResize(requestId);
 }
 
@@ -248,6 +253,11 @@ window.addEventListener("message", (event: MessageEvent) => {
 
 	if (data.type === "vue-sandbox-theme") {
 		applySandboxTheme(data.theme);
+		return;
+	}
+
+	if (data.type === "vue-sandbox-remeasure") {
+		reportResize(data.requestId);
 		return;
 	}
 
