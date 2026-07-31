@@ -46,7 +46,7 @@ export function shouldBackoffOnSandboxTimeout(message: string): boolean {
 	);
 }
 
-export const SANDBOX_TIMEOUT_BACKOFF_MS = 60_000;
+export const SANDBOX_TIMEOUT_BACKOFF_MS = 2_000;
 
 /** Drop stale async render work when a newer epoch has started. */
 export function isRenderEpochStale(

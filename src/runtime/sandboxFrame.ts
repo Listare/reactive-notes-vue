@@ -18,6 +18,12 @@ import {
 import type { VueInteractiveTheme } from "../theme/getTheme";
 import type { StackCodeRegion } from "./stackTrace";
 import { SandboxAbortedError } from "./sandboxAbort";
+import { isSandboxMountEmpty } from "./vueBlockRemountMetadata";
+import {
+	applyHostMinHeight,
+	clearHostMinHeight,
+	resolveLayoutHeightPx,
+} from "./vueBlockHeightPersist";
 
 export type { SandboxRuntimeError };
 
@@ -33,19 +39,39 @@ export class SandboxFrame {
 	private onRuntimeError: ((error: SandboxRuntimeError) => void) | null =
 		null;
 	private cancelReadyInit: (() => void) | null = null;
+	private cancelActiveRender: (() => void) | null = null;
+	private lastHeightPx = 0;
+	private onHeightChange: ((heightPx: number) => void) | null = null;
 
 	constructor(
 		private readonly container: HTMLElement,
 		private readonly app: App,
 	) {}
 
-	async init(): Promise<void> {
+	/** Last stable content height reported by the sandbox (0 if never resized). */
+	getLastHeightPx(): number {
+		return this.lastHeightPx;
+	}
+
+	setOnHeightChange(handler: ((heightPx: number) => void) | null): void {
+		this.onHeightChange = handler;
+	}
+
+	async init(initialHeightPx = 0): Promise<void> {
 		if (this.readyPromise) return this.readyPromise;
 
 		for (const stale of Array.from(
 			this.container.querySelectorAll("iframe.vue-interactive-sandbox"),
 		)) {
 			stale.remove();
+		}
+
+		const startHeight = 1;
+		if (initialHeightPx > 0) {
+			this.lastHeightPx = Math.ceil(initialHeightPx);
+			// Reserve layout on the host; keep the iframe at 1px until measure
+			// (large pre-ready iframe height can stall srcdoc init in Electron).
+			applyHostMinHeight(this.container, this.lastHeightPx);
 		}
 
 		const runnerScript = getSandboxRunnerScript();
@@ -59,7 +85,7 @@ export class SandboxFrame {
 		iframe.setAttribute("scrolling", "no");
 		iframe.style.border = "none";
 		iframe.style.width = "100%";
-		iframe.style.height = "1px";
+		iframe.style.height = `${startHeight}px`;
 		iframe.style.display = "block";
 		iframe.style.overflow = "hidden";
 		iframe.srcdoc = buildSandboxSrcdoc(
@@ -125,12 +151,25 @@ export class SandboxFrame {
 			if (!isSandboxOutbound(data)) return;
 			const action = planSandboxHostMessage(data, this.activeRequestId);
 			if (action.type === "prepare-measure") {
+				// Keep page layout stable while the iframe collapses for measure.
+				const reserve = resolveLayoutHeightPx({
+					persistedPx: this.lastHeightPx,
+					iframeStyleHeight: iframe.style.height,
+					iframeOffsetHeight: iframe.offsetHeight,
+					hostMinHeight: this.container.style.minHeight,
+				});
+				if (reserve > 0) {
+					applyHostMinHeight(this.container, reserve);
+				}
 				iframe.style.height = `${action.iframeHeightPx}px`;
 				iframe.contentWindow?.postMessage(action.remeasure, "*");
 				return;
 			}
 			if (action.type === "resize") {
 				iframe.style.height = `${action.iframeHeightPx}px`;
+				this.lastHeightPx = action.iframeHeightPx;
+				clearHostMinHeight(this.container);
+				this.onHeightChange?.(action.iframeHeightPx);
 				return;
 			}
 			if (action.type === "runtime-error" && this.onRuntimeError) {
@@ -198,7 +237,10 @@ export class SandboxFrame {
 		};
 
 		return new Promise((resolve, reject) => {
+			let settled = false;
 			const timeout = window.setTimeout(() => {
+				if (settled) return;
+				settled = true;
 				cleanup();
 				this.activeRequestId = null;
 				reject(new Error("沙盒渲染超时。"));
@@ -208,10 +250,14 @@ export class SandboxFrame {
 				if (event.source !== targetWindow) return;
 				const reply = classifySandboxRenderReply(event.data, requestId);
 				if (reply.type === "rendered") {
+					if (settled) return;
+					settled = true;
 					this.activeRequestId = requestId;
 					cleanup();
 					resolve();
 				} else if (reply.type === "error") {
+					if (settled) return;
+					settled = true;
 					cleanup();
 					this.activeRequestId = null;
 					const err = new Error(reply.message);
@@ -225,6 +271,15 @@ export class SandboxFrame {
 			const cleanup = () => {
 				window.clearTimeout(timeout);
 				window.removeEventListener("message", onMessage);
+				this.cancelActiveRender = null;
+			};
+
+			this.cancelActiveRender = () => {
+				if (settled) return;
+				settled = true;
+				cleanup();
+				this.activeRequestId = null;
+				reject(new SandboxAbortedError());
 			};
 
 			window.addEventListener("message", onMessage);
@@ -260,18 +315,28 @@ export class SandboxFrame {
 		return this.iframe;
 	}
 
-	/** True when the iframe is connected and finished its ready handshake. */
+	/**
+	 * True when the iframe is connected, finished ready handshake, and still
+	 * has mounted Vue output. A connected-but-empty frame (after virtualization
+	 * detach) must not be reused — MessagePorts are already transferred.
+	 */
 	isUsable(): boolean {
-		return (
-			this.iframe != null &&
-			this.iframe.isConnected &&
-			this.readyPromise != null
-		);
+		const iframe = this.iframe;
+		if (
+			iframe == null ||
+			!iframe.isConnected ||
+			this.readyPromise == null
+		) {
+			return false;
+		}
+		return !isSandboxMountEmpty(iframe);
 	}
 
 	unmount(): void {
 		this.cancelReadyInit?.();
 		this.cancelReadyInit = null;
+		this.cancelActiveRender?.();
+		this.cancelActiveRender = null;
 		this.activeRequestId = null;
 		this.onRuntimeError = null;
 		const iframe = this.iframe;

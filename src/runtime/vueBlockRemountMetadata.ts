@@ -22,10 +22,6 @@ export function persistVueBlockRemountMetadata(
 export { clearContainerSandboxLive as clearVueSandboxAlive } from "./vueBlockLiveSession";
 export { markContainerSandboxLive as markVueSandboxAlive } from "./vueBlockLiveSession";
 
-function isVueBlockLoading(el: HTMLElement): boolean {
-	return el.querySelector(".vue-interactive-placeholder[aria-busy]") != null;
-}
-
 export function isSandboxMountEmpty(iframe: HTMLIFrameElement): boolean {
 	try {
 		const doc = iframe.contentDocument;
@@ -41,10 +37,12 @@ export function isSandboxMountEmpty(iframe: HTMLIFrameElement): boolean {
  * Remount only when there is no live Vue output in the sandbox mount root.
  * Mount content is authoritative (with allow-same-origin); avoids remounting a
  * still-running iframe after the in-memory live flag was cleared.
+ *
+ * Note: a loading placeholder alone must not block remount — after reading-view
+ * virtualization unload we intentionally leave a skeleton that should remount.
+ * Concurrent work is coalesced via `VueBlockChild` / `remountInFlight`.
  */
 export function vueSandboxNeedsRemount(containerEl: HTMLElement): boolean {
-	if (isVueBlockLoading(containerEl)) return false;
-
 	const iframe = containerEl.querySelector("iframe.vue-interactive-sandbox");
 	if (!(iframe instanceof HTMLIFrameElement)) {
 		return (

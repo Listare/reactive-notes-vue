@@ -20,7 +20,7 @@ import {
 	persistVueBlockRemountMetadata,
 	vueSandboxNeedsRemount,
 } from "./vueBlockRemountMetadata";
-import { registerVueBlock } from "./vueBlockRegistry";
+import { getVueBlock, registerVueBlock } from "./vueBlockRegistry";
 import {
 	clearVueBlockVaultDependencies,
 	setVueBlockVaultDependencies,
@@ -38,6 +38,13 @@ import {
 import { readVaultTextCoalesced } from "../vault/vaultFileAccess";
 import { prefetchEsmGraph } from "./esm/prefetchEsmGraph";
 import { resolveUrlDependencies } from "./esm/resolveUrlDependencies";
+import {
+	applyHostMinHeight,
+	clearHostMinHeight,
+	persistBlockHeight,
+	readPersistedBlockHeight,
+	resolveLayoutHeightPx,
+} from "./vueBlockHeightPersist";
 
 export class VueBlockChild extends MarkdownRenderChild {
 	private sandbox: SandboxFrame | null = null;
@@ -50,6 +57,7 @@ export class VueBlockChild extends MarkdownRenderChild {
 	/** Bumped on each render start and on unload to drop stale async work. */
 	private renderEpoch = 0;
 	private renderBackoffUntil = 0;
+	private backoffRetryTimer: number | null = null;
 	/** Coalesces concurrent render/remount calls into one in-flight pass. */
 	private activeRender: Promise<void> | null = null;
 	private lastSource = "";
@@ -72,12 +80,22 @@ export class VueBlockChild extends MarkdownRenderChild {
 
 	/** Restores content after virtualization unload or DOM re-insert without onload. */
 	async remountIfNeeded(): Promise<void> {
-		if (this.activeRender) return this.activeRender;
+		if (!this.containerEl.isConnected) return;
+		if (this.activeRender) {
+			try {
+				await this.activeRender;
+			} catch {
+				// Prior render failed; fall through and retry when still needed.
+			}
+			if (!this.containerEl.isConnected) return;
+			if (!this.needsRemount()) return;
+		}
 		if (Date.now() < this.renderBackoffUntil) return;
 		if (!this.lastSource) return;
 		if (!this.needsRemount()) return;
 
 		const markdown = await this.readHostMarkdown();
+		if (!this.containerEl.isConnected) return;
 		await this.scheduleRender(this.lastSource, markdown);
 	}
 
@@ -218,10 +236,52 @@ export class VueBlockChild extends MarkdownRenderChild {
 		this.runtimeErrorHost = this.containerEl.createDiv({
 			cls: "vue-interactive-runtime-error-host",
 		});
+		this.applyReservedHostHeight(this.sandboxHost);
 		return {
 			host: this.sandboxHost,
 			runtimeErrorHost: this.runtimeErrorHost,
 		};
+	}
+
+	private applyReservedHostHeight(host: HTMLElement): void {
+		const height = readPersistedBlockHeight(this.containerEl);
+		if (height != null) {
+			applyHostMinHeight(host, height);
+		}
+	}
+
+	private rememberSandboxHeight(heightPx: number): void {
+		persistBlockHeight(this.containerEl, heightPx);
+	}
+
+	private captureCurrentHeightPx(): number {
+		const iframe = this.sandbox?.getIframe();
+		return resolveLayoutHeightPx({
+			persistedPx: readPersistedBlockHeight(this.containerEl),
+			iframeStyleHeight: iframe?.style.height,
+			iframeOffsetHeight: iframe?.offsetHeight,
+			hostMinHeight: this.sandboxHost?.style.minHeight,
+			fallbackPx: this.sandbox?.getLastHeightPx(),
+		});
+	}
+
+	private scheduleRemountAfterBackoff(): void {
+		if (this.backoffRetryTimer != null) {
+			window.clearTimeout(this.backoffRetryTimer);
+		}
+		const delay = Math.max(0, this.renderBackoffUntil - Date.now()) + 50;
+		this.backoffRetryTimer = window.setTimeout(() => {
+			this.backoffRetryTimer = null;
+			if (!this.containerEl.isConnected) return;
+			void this.remountIfNeeded();
+		}, delay);
+	}
+
+	private scheduleRemountSoon(): void {
+		queueMicrotask(() => {
+			if (!this.containerEl.isConnected) return;
+			void this.remountIfNeeded();
+		});
 	}
 
 	private async doRender(
@@ -243,6 +303,7 @@ export class VueBlockChild extends MarkdownRenderChild {
 		);
 		clearVueSandboxAlive(this.containerEl);
 
+		// Never reuse a connected-but-empty / port-dead frame after virtualization.
 		const reuseSandbox = this.sandbox?.isUsable() === true;
 		if (!reuseSandbox) {
 			this.teardownSandbox();
@@ -281,8 +342,13 @@ export class VueBlockChild extends MarkdownRenderChild {
 			let sandbox = this.sandbox;
 			if (!reuseSandbox || !sandbox?.isUsable()) {
 				sandbox = new SandboxFrame(host, this.plugin.app);
+				sandbox.setOnHeightChange((h) => this.rememberSandboxHeight(h));
 				this.sandbox = sandbox;
-				await sandbox.init();
+				const initialHeight =
+					readPersistedBlockHeight(this.containerEl) ?? 0;
+				await sandbox.init(initialHeight);
+			} else {
+				sandbox.setOnHeightChange((h) => this.rememberSandboxHeight(h));
 			}
 			if (this.abortRenderIfStale(epoch)) return;
 
@@ -314,10 +380,14 @@ export class VueBlockChild extends MarkdownRenderChild {
 				},
 			);
 			placeholder?.remove();
+			clearHostMinHeight(host);
 			markVueSandboxAlive(this.containerEl);
 		} catch (e) {
+			if (isSandboxAbortedError(e)) {
+				this.scheduleRemountSoon();
+				return;
+			}
 			if (this.abortRenderIfStale(epoch)) return;
-			if (isSandboxAbortedError(e)) return;
 			clearVueSandboxAlive(this.containerEl);
 			clearVueBlockVaultDependencies(this);
 			this.teardownSandbox();
@@ -326,6 +396,7 @@ export class VueBlockChild extends MarkdownRenderChild {
 			const err = e instanceof Error ? e : new Error(String(e));
 			if (shouldBackoffOnSandboxTimeout(err.message)) {
 				this.renderBackoffUntil = Date.now() + SANDBOX_TIMEOUT_BACKOFF_MS;
+				this.scheduleRemountAfterBackoff();
 			}
 			const loc = parseModuleLoadErrorLocation(err.message);
 			renderError(this.containerEl, err.message, {
@@ -355,22 +426,22 @@ export class VueBlockChild extends MarkdownRenderChild {
 		this.teardownSandbox();
 		this.sandboxHost = null;
 		this.runtimeErrorHost = null;
+		this.scheduleRemountSoon();
 		return true;
 	}
 
+	/**
+	 * Tear down the sandbox immediately (cancel in-flight init/render).
+	 * Defer the loading shell until we know the section stayed detached —
+	 * and only if this child still owns the container (avoids wiping a newer
+	 * child's iframe after processor re-create).
+	 */
 	onunload(): void {
-		const el = this.containerEl;
-		// Obsidian may call onunload after the section is re-inserted (scroll back).
-		requestAnimationFrame(() => {
-			requestAnimationFrame(() => {
-				if (el.isConnected) return;
-				this.performUnload();
-			});
-		});
-	}
-
-	private performUnload(): void {
 		this.renderEpoch++;
+		const heightPx = this.captureCurrentHeightPx();
+		if (heightPx > 0) {
+			persistBlockHeight(this.containerEl, heightPx);
+		}
 		clearVueSandboxAlive(this.containerEl);
 		persistVueBlockRemountMetadata(
 			this.containerEl,
@@ -381,11 +452,19 @@ export class VueBlockChild extends MarkdownRenderChild {
 		this.teardownSandbox();
 		this.sandboxHost = null;
 		this.runtimeErrorHost = null;
-		this.restoreLoadingShellAfterUnload();
+
+		const el = this.containerEl;
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				if (el.isConnected) return;
+				if (getVueBlock(el) !== this) return;
+				this.restoreLoadingShellAfterUnload(heightPx);
+			});
+		});
 	}
 
 	/** Keeps a visible shell so reading-view virtualization can detect and remount. */
-	private restoreLoadingShellAfterUnload(): void {
+	private restoreLoadingShellAfterUnload(reservedHeightPx: number): void {
 		const existing = this.containerEl.querySelector(
 			".vue-interactive-sandbox-host",
 		);
@@ -401,6 +480,13 @@ export class VueBlockChild extends MarkdownRenderChild {
 			});
 		}
 		this.sandboxHost = host;
+		const height =
+			reservedHeightPx > 0
+				? reservedHeightPx
+				: (readPersistedBlockHeight(this.containerEl) ?? 0);
+		if (height > 0) {
+			applyHostMinHeight(host, height);
+		}
 		renderLoadingPlaceholder(host);
 	}
 }

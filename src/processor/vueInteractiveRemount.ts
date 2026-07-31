@@ -34,6 +34,8 @@ import {
 const pluginManagedChildren = new WeakSet<VueBlockChild>();
 const intersectionObserved = new WeakSet<HTMLElement>();
 const remountInFlight = new WeakSet<HTMLElement>();
+/** Coalesce ensureVueBlockMounted calls that arrive while one is in flight. */
+const remountPending = new WeakSet<HTMLElement>();
 
 export async function resolveVueBlockSource(
 	el: HTMLElement,
@@ -112,48 +114,62 @@ export async function ensureVueBlockMounted(
 	}
 	if (existing?.hasLiveSandbox()) return;
 	if (!vueSandboxNeedsRemount(el)) return;
-	if (remountInFlight.has(el)) return;
+	if (remountInFlight.has(el)) {
+		remountPending.add(el);
+		return;
+	}
 
 	remountInFlight.add(el);
 	try {
-		let child = existing;
-		if (!child) {
-			const resolved =
-				knownSource != null && (sourcePath ?? ctx?.sourcePath)
-					? {
-							sourcePath: sourcePath ?? ctx!.sourcePath,
-							source: knownSource,
-						}
-					: await resolveVueBlockSource(
-							el,
-							plugin,
-							sourcePath ?? ctx?.sourcePath,
-							root,
-						);
-			if (!resolved) return;
+		do {
+			remountPending.delete(el);
+			if (!el.isConnected) return;
 
-			child = new VueBlockChild(
-				el,
-				plugin,
-				resolved.sourcePath,
-				resolved.source,
-			);
-			registerVueBlock(el, child);
-			registerVueBlockInsertRemount(el);
-			registerVueBlockIntersectionRemount(el);
-			if (ctx) {
-				ctx.addChild(child);
-			} else if (!pluginManagedChildren.has(child)) {
-				plugin.addChild(child);
-				pluginManagedChildren.add(child);
+			let child = getVueBlock(el) ?? existing;
+			if (!child) {
+				const resolved =
+					knownSource != null && (sourcePath ?? ctx?.sourcePath)
+						? {
+								sourcePath: sourcePath ?? ctx!.sourcePath,
+								source: knownSource,
+							}
+						: await resolveVueBlockSource(
+								el,
+								plugin,
+								sourcePath ?? ctx?.sourcePath,
+								root,
+							);
+				if (!resolved) return;
+
+				child = new VueBlockChild(
+					el,
+					plugin,
+					resolved.sourcePath,
+					resolved.source,
+				);
+				registerVueBlock(el, child);
+				registerVueBlockInsertRemount(el);
+				registerVueBlockIntersectionRemount(el);
+				if (ctx) {
+					ctx.addChild(child);
+				} else if (!pluginManagedChildren.has(child)) {
+					plugin.addChild(child);
+					pluginManagedChildren.add(child);
+				}
 			}
-		}
 
-		if (vueSandboxNeedsRemount(el)) {
-			await child.remountIfNeeded();
-		}
+			if (child.hasLiveSandbox()) return;
+			if (vueSandboxNeedsRemount(el)) {
+				await child.remountIfNeeded();
+			}
+		} while (
+			remountPending.has(el) &&
+			el.isConnected &&
+			vueSandboxNeedsRemount(el)
+		);
 	} finally {
 		remountInFlight.delete(el);
+		remountPending.delete(el);
 	}
 }
 

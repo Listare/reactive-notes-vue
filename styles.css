@@ -3,12 +3,27 @@
 	max-width: 100%;
 }
 
+/*
+ * Obsidian styles custom code-block hosts like fenced `pre` (padding / chrome).
+ * Interactive mounts should be full-bleed inside the block; otherwise remount
+ * with a reserved height makes that padding look like an empty outer frame.
+ */
+.markdown-preview-view .block-language-vue-interactive.vue-interactive-root,
+.markdown-source-view .block-language-vue-interactive.vue-interactive-root,
+.markdown-rendered .block-language-vue-interactive.vue-interactive-root {
+	padding: 0;
+	background: transparent;
+	box-shadow: none;
+	border: none;
+}
+
 .vue-interactive-sandbox-host {
 	position: relative;
 	width: 100%;
 }
 
 .vue-interactive-sandbox-host:has(.vue-interactive-placeholder) {
+	/* Fallback when no reserved height from a previous mount. */
 	min-height: 5rem;
 }
 
