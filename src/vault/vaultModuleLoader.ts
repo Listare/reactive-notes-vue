@@ -26,19 +26,16 @@ import {
 	collectNodeBuiltinSpecifiersFromSfc,
 	validateNodeBuiltinImports,
 } from "../compiler/validateNodeBuiltinImports";
-
-const BINARY_RESOURCE_EXT =
-	/\.(png|jpe?g|gif|webp|svg|ico|woff2?|ttf|eot|mp3|mp4|webm|pdf)$/i;
-
-function canonicalId(vaultPath: string, block?: string): string {
-	return block
-		? `${vaultPath}?block=${encodeURIComponent(block)}`
-		: vaultPath;
-}
-
-function dataModuleCode(data: unknown): string {
-	return `return { default: ${JSON.stringify(data)} };`;
-}
+import {
+	canonicalModuleId,
+	classifyNamedBlockContent,
+	classifyVaultModule,
+	dataModuleCode,
+	missingBinaryResourceError,
+	missingNamedBlockError,
+	parseJsonModule,
+	wrapCompiledModuleCode,
+} from "./vaultModuleKind";
 
 function validateNodeImportsForSource(
 	source: string,
@@ -52,6 +49,77 @@ function validateNodeImportsForSource(
 		specs,
 		ctx.enableExtendedNodeBuiltins === true,
 	);
+}
+
+async function loadMarkdownModule(options: {
+	ctx: ResolvePathContext;
+	vaultPath: string;
+	id: string;
+	block?: string;
+	readText: (path: string) => Promise<string>;
+}): Promise<LoadedModuleSource> {
+	const { ctx, vaultPath, id, block, readText } = options;
+	const md = await readText(vaultPath);
+	if (!block) {
+		return {
+			canonicalId: id,
+			vaultPath,
+			code: dataModuleCode(md),
+			styles: [],
+			dependencies: [],
+		};
+	}
+	const extracted = extractNamedCodeBlock(md, block);
+	if (!extracted) {
+		throw missingNamedBlockError(vaultPath, block);
+	}
+	const contentKind = classifyNamedBlockContent(
+		extracted.lang,
+		isJsLikeLanguage(extracted.lang),
+		isVueSfcLanguage(extracted.lang),
+	);
+	if (contentKind.kind === "vue-sfc") {
+		validateNodeImportsForSource(extracted.content, ctx, true);
+		const compiled = compileSfc(extracted.content, {
+			bundleImports: false,
+		});
+		return {
+			canonicalId: id,
+			vaultPath,
+			code: wrapCompiledModuleCode(compiled.moduleCode),
+			styles: compiled.styles,
+			dependencies: collectImportsFromSfc(extracted.content),
+			originalLineByEmitted: compiled.originalLineByEmitted,
+		};
+	}
+	if (contentKind.kind === "script") {
+		const virtualPath = `${vaultPath}?block=${block}`;
+		validateNodeImportsForSource(extracted.content, ctx, false);
+		return {
+			canonicalId: id,
+			vaultPath,
+			code: prepareScriptModule(extracted.content, virtualPath),
+			styles: [],
+			dependencies: collectImportsFromCode(extracted.content),
+		};
+	}
+	let parsed: unknown = {
+		lang: extracted.lang,
+		content: extracted.content,
+	};
+	if (contentKind.kind === "json") {
+		parsed = parseJsonModule(
+			extracted.content,
+			`代码块 "${block}" JSON 解析失败`,
+		);
+	}
+	return {
+		canonicalId: id,
+		vaultPath,
+		code: dataModuleCode(parsed),
+		styles: [],
+		dependencies: [],
+	};
 }
 
 export function createVaultModuleLoader(
@@ -68,163 +136,91 @@ export function createVaultModuleLoader(
 			...ctx,
 			fromPath: request.fromVaultPath,
 		});
-		const id = canonicalId(vaultPath, block);
-		const lower = vaultPath.toLowerCase();
+		const id = canonicalModuleId(vaultPath, block);
+		const kind = classifyVaultModule(vaultPath, block);
 
-		if (lower.endsWith(".css")) {
-			const css = await readText(vaultPath);
-			const styles: CompiledStyle[] = [{ css, scoped: false }];
-			return {
-				canonicalId: id,
-				vaultPath,
-				code: "return {};",
-				styles,
-				dependencies: [],
-			};
-		}
-
-		if (BINARY_RESOURCE_EXT.test(lower)) {
-			const url = await getVaultResourceUrl(app, vaultPath);
-			if (!url) {
-				throw new Error(`找不到资源文件: ${vaultPath}`);
-			}
-			return {
-				canonicalId: id,
-				vaultPath,
-				code: dataModuleCode(url),
-				styles: [],
-				dependencies: [],
-			};
-		}
-
-		if (lower.endsWith(".md")) {
-			const md = await readText(vaultPath);
-			if (!block) {
+		switch (kind.kind) {
+			case "css": {
+				const css = await readText(vaultPath);
+				const styles: CompiledStyle[] = [{ css, scoped: false }];
 				return {
 					canonicalId: id,
 					vaultPath,
-					code: dataModuleCode(md),
+					code: "return {};",
+					styles,
+					dependencies: [],
+				};
+			}
+			case "binary": {
+				const url = await getVaultResourceUrl(app, vaultPath);
+				if (!url) {
+					throw missingBinaryResourceError(vaultPath);
+				}
+				return {
+					canonicalId: id,
+					vaultPath,
+					code: dataModuleCode(url),
 					styles: [],
 					dependencies: [],
 				};
 			}
-			const extracted = extractNamedCodeBlock(md, block);
-			if (!extracted) {
-				throw new Error(
-					`在 ${vaultPath} 中未找到名为 "${block}" 的代码块（需使用 \`{name=${block}}\` 标记）。`,
-				);
+			case "markdown":
+				return loadMarkdownModule({
+					ctx,
+					vaultPath,
+					id,
+					block,
+					readText,
+				});
+			case "vue": {
+				const source = await readText(vaultPath);
+				validateNodeImportsForSource(source, ctx, true);
+				const compiled = compileSfc(source, { bundleImports: false });
+				return {
+					canonicalId: id,
+					vaultPath,
+					code: wrapCompiledModuleCode(compiled.moduleCode),
+					styles: compiled.styles,
+					dependencies: collectImportsFromSfc(source),
+					originalLineByEmitted: compiled.originalLineByEmitted,
+				};
 			}
-			if (isJsLikeLanguage(extracted.lang)) {
-				const virtualPath = `${vaultPath}?block=${block}`;
-				if (isVueSfcLanguage(extracted.lang)) {
-					validateNodeImportsForSource(extracted.content, ctx, true);
-					const compiled = compileSfc(extracted.content, {
-						bundleImports: false,
-					});
-					const code = compiled.moduleCode.includes("return ")
-						? compiled.moduleCode
-						: `return ${compiled.moduleCode}`;
-					return {
-						canonicalId: id,
-						vaultPath,
-						code,
-						styles: compiled.styles,
-						dependencies: collectImportsFromSfc(extracted.content),
-						originalLineByEmitted: compiled.originalLineByEmitted,
-					};
-				}
-				validateNodeImportsForSource(extracted.content, ctx, false);
-				const code = prepareScriptModule(
-					extracted.content,
-					virtualPath,
+			case "json": {
+				const text = await readText(vaultPath);
+				const parsed = parseJsonModule(
+					text,
+					`JSON 解析失败 (${vaultPath})`,
 				);
 				return {
 					canonicalId: id,
 					vaultPath,
-					code,
+					code: dataModuleCode(parsed),
 					styles: [],
-					dependencies: collectImportsFromCode(extracted.content),
+					dependencies: [],
 				};
 			}
-			let parsed: unknown = {
-				lang: extracted.lang,
-				content: extracted.content,
-			};
-			if (extracted.lang.toLowerCase() === "json") {
-				try {
-					parsed = JSON.parse(extracted.content) as unknown;
-				} catch (e) {
-					const msg = e instanceof Error ? e.message : String(e);
-					throw new Error(
-						`代码块 "${block}" JSON 解析失败: ${msg}`,
-					);
-				}
+			case "script": {
+				const source = await readText(vaultPath);
+				validateNodeImportsForSource(source, ctx, false);
+				return {
+					canonicalId: id,
+					vaultPath,
+					code: prepareScriptModule(source, vaultPath),
+					styles: [],
+					dependencies: collectImportsFromCode(source),
+				};
 			}
-			return {
-				canonicalId: id,
-				vaultPath,
-				code: dataModuleCode(parsed),
-				styles: [],
-				dependencies: [],
-			};
-		}
-
-		if (lower.endsWith(".vue")) {
-			const source = await readText(vaultPath);
-			validateNodeImportsForSource(source, ctx, true);
-			const compiled = compileSfc(source, { bundleImports: false });
-			const code = compiled.moduleCode.includes("return ")
-				? compiled.moduleCode
-				: `return ${compiled.moduleCode}`;
-			return {
-				canonicalId: id,
-				vaultPath,
-				code,
-				styles: compiled.styles,
-				dependencies: collectImportsFromSfc(source),
-				originalLineByEmitted: compiled.originalLineByEmitted,
-			};
-		}
-
-		if (lower.endsWith(".json") && !block) {
-			const text = await readText(vaultPath);
-			let parsed: unknown;
-			try {
-				parsed = JSON.parse(text) as unknown;
-			} catch (e) {
-				const msg = e instanceof Error ? e.message : String(e);
-				throw new Error(`JSON 解析失败 (${vaultPath}): ${msg}`);
+			case "text": {
+				const text = await readText(vaultPath);
+				return {
+					canonicalId: id,
+					vaultPath,
+					code: dataModuleCode(text),
+					styles: [],
+					dependencies: [],
+				};
 			}
-			return {
-				canonicalId: id,
-				vaultPath,
-				code: dataModuleCode(parsed),
-				styles: [],
-				dependencies: [],
-			};
 		}
-
-		if (/\.(m?[jt]sx?)$/i.test(lower)) {
-			const source = await readText(vaultPath);
-			validateNodeImportsForSource(source, ctx, false);
-			const code = prepareScriptModule(source, vaultPath);
-			return {
-				canonicalId: id,
-				vaultPath,
-				code,
-				styles: [],
-				dependencies: collectImportsFromCode(source),
-			};
-		}
-
-		const text = await readText(vaultPath);
-		return {
-			canonicalId: id,
-			vaultPath,
-			code: dataModuleCode(text),
-			styles: [],
-			dependencies: [],
-		};
 	};
 
 	return {

@@ -1,18 +1,12 @@
+import { encodeWireValueBase, isWireRefObject } from "../bridge/wireCodecBase";
 import type { NodeWireValue } from "./bridgeProtocol";
 
-const REF_KEY = "__ref";
 const U8_KEY = "__nodeUint8Array";
 
 export function isWireRef(
 	value: NodeWireValue,
 ): value is { __ref: number } {
-	return (
-		typeof value === "object" &&
-		value !== null &&
-		!Array.isArray(value) &&
-		REF_KEY in value &&
-		typeof (value as { __ref: number }).__ref === "number"
-	);
+	return isWireRefObject(value);
 }
 
 export function isWireUint8Array(
@@ -73,37 +67,21 @@ export function encodeWireValue(
 	value: unknown,
 	encodeRef: (value: object) => NodeWireValue,
 ): NodeWireValue {
-	if (value === null || value === undefined) {
-		return null;
-	}
-	const t = typeof value;
-	if (t === "boolean" || t === "number" || t === "string") {
-		return value as boolean | number | string;
-	}
-	if (t === "bigint" || t === "symbol") {
-		throw new Error("Node API 返回值无法传入沙盒。");
-	}
-	if (t === "function") {
-		return encodeRef(value as object);
-	}
-	if (Array.isArray(value)) {
-		return value.map((item) => encodeWireValue(item, encodeRef));
-	}
-	if (value instanceof Date) {
-		return value.toISOString();
-	}
-	if (typeof value === "object") {
-		if (value instanceof ArrayBuffer) {
-			return {
-				__nodeUint8Array: bytesToBase64(new Uint8Array(value)),
-			};
-		}
-		if (isBinaryBytes(value)) {
-			return { __nodeUint8Array: bytesToBase64(toUint8Array(value)) };
-		}
-		return encodeRef(value);
-	}
-	throw new Error("Node API 返回值无法传入沙盒。");
+	return encodeWireValueBase<NodeWireValue>(value, {
+		encodeRef,
+		unsupportedMessage: "Node API 返回值无法传入沙盒。",
+		encodeSpecialObject(obj) {
+			if (obj instanceof ArrayBuffer) {
+				return {
+					__nodeUint8Array: bytesToBase64(new Uint8Array(obj)),
+				};
+			}
+			if (isBinaryBytes(obj)) {
+				return { __nodeUint8Array: bytesToBase64(toUint8Array(obj)) };
+			}
+			return undefined;
+		},
+	});
 }
 
 export function encodeWireArgs(

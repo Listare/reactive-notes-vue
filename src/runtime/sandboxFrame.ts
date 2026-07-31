@@ -9,14 +9,17 @@ import type {
 	SandboxOutbound,
 	SandboxStyleChunk,
 } from "./sandboxProtocol";
+import { isSandboxOutbound } from "./sandboxProtocol";
+import {
+	classifySandboxRenderReply,
+	planSandboxHostMessage,
+	type SandboxRuntimeError,
+} from "./sandboxHostMessage";
 import type { VueInteractiveTheme } from "../theme/getTheme";
 import type { StackCodeRegion } from "./stackTrace";
 import { SandboxAbortedError } from "./sandboxAbort";
 
-export type SandboxRuntimeError = {
-	message: string;
-	stack?: string;
-};
+export type { SandboxRuntimeError };
 
 export class SandboxFrame {
 	private iframe: HTMLIFrameElement | null = null;
@@ -118,32 +121,20 @@ export class SandboxFrame {
 
 		this.messageHandler = (event: MessageEvent) => {
 			if (event.source !== iframe.contentWindow) return;
-			const data = event.data as SandboxOutbound;
-			if (data?.type === "vue-sandbox-prepare-measure") {
-				// 1px (not 0): some engines report scrollHeight 0 for a 0-tall frame.
-				iframe.style.height = "1px";
-				iframe.contentWindow?.postMessage(
-					{
-						type: "vue-sandbox-remeasure",
-						requestId: data.requestId,
-					} satisfies SandboxInbound,
-					"*",
-				);
+			const data: unknown = event.data;
+			if (!isSandboxOutbound(data)) return;
+			const action = planSandboxHostMessage(data, this.activeRequestId);
+			if (action.type === "prepare-measure") {
+				iframe.style.height = `${action.iframeHeightPx}px`;
+				iframe.contentWindow?.postMessage(action.remeasure, "*");
 				return;
 			}
-			if (data?.type === "vue-sandbox-resize") {
-				iframe.style.height = `${Math.max(data.height, 1)}px`;
+			if (action.type === "resize") {
+				iframe.style.height = `${action.iframeHeightPx}px`;
 				return;
 			}
-			if (
-				data?.type === "vue-sandbox-runtime-error" &&
-				data.requestId === this.activeRequestId &&
-				this.onRuntimeError
-			) {
-				this.onRuntimeError({
-					message: data.message,
-					stack: data.stack,
-				});
+			if (action.type === "runtime-error" && this.onRuntimeError) {
+				this.onRuntimeError(action.error);
 			}
 		};
 		window.addEventListener("message", this.messageHandler);
@@ -212,25 +203,17 @@ export class SandboxFrame {
 
 			const onMessage = (event: MessageEvent) => {
 				if (event.source !== targetWindow) return;
-				const data = event.data as SandboxOutbound;
-				if (
-					!data ||
-					!("requestId" in data) ||
-					data.requestId !== requestId
-				) {
-					return;
-				}
-
-				if (data.type === "vue-sandbox-rendered") {
+				const reply = classifySandboxRenderReply(event.data, requestId);
+				if (reply.type === "rendered") {
 					this.activeRequestId = requestId;
 					cleanup();
 					resolve();
-				} else if (data.type === "vue-sandbox-error") {
+				} else if (reply.type === "error") {
 					cleanup();
 					this.activeRequestId = null;
-					const err = new Error(data.message);
-					if (data.stack) {
-						err.stack = data.stack;
+					const err = new Error(reply.message);
+					if (reply.stack) {
+						err.stack = reply.stack;
 					}
 					reject(err);
 				}

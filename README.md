@@ -13,6 +13,7 @@
 pnpm install
 pnpm run dev      # 监听编译 → main.js，并同步到 test-vault
 pnpm test         # 单元测试
+pnpm run test:coverage  # 单元测试 + coverage 阈值（≥85% lines，compiler/bridge/纯决策层）
 pnpm run build    # 生产构建，并同步到 test-vault
 ```
 

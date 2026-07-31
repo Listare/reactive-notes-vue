@@ -88,11 +88,10 @@ function compileDescriptor(
 	descriptor: SFCDescriptor,
 	scopeId: string,
 ): CompileSfcResult {
-	if (!descriptor.scriptSetup && !descriptor.script) {
-		throw new Error("需要 <script setup> 块。");
-	}
-	if (!descriptor.template) {
-		throw new Error("需要 <template> 块。");
+	// Defensive: `normalizeSfc` already requires these blocks.
+	const template = descriptor.template;
+	if (!template) {
+		throw new Error("缺少 <template> 块。");
 	}
 
 	const scriptResult = compileScript(descriptor, {
@@ -108,7 +107,7 @@ function compileDescriptor(
 	}
 
 	const templateResult = compileTemplate({
-		source: descriptor.template.content,
+		source: template.content,
 		filename: "block.vue",
 		id: scopeId,
 		scoped: descriptor.styles.some((s) => s.scoped),

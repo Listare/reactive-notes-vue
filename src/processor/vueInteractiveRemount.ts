@@ -1,10 +1,8 @@
 import {
 	MarkdownPostProcessorContext,
-	MarkdownView,
 	TFile,
 } from "obsidian";
 import type ReactiveNotesVuePlugin from "../main";
-import { listVisibleVueInteractiveBlocks } from "../markdown/vueInteractiveFence";
 import { VueBlockChild } from "../runtime/VueBlockChild";
 import {
 	DATA_VUE_BLOCK_INDEX,
@@ -17,36 +15,24 @@ import {
 	registerVueBlock,
 	registerVueBlockInsertRemount,
 } from "../runtime/vueBlockRegistry";
+import { debounce } from "../utils/debounce";
+import {
+	attachPreviewScrollListeners,
+	forEachMarkdownPreview,
+} from "./vueInteractivePreviewListeners";
+import {
+	blockIndexInPreview,
+	pickVueBlockSourceFromMarkdown,
+	resolveCodeBlockContainer,
+	shouldRemountFromCodeSource,
+	shouldScheduleVueBlockRemount,
+	shouldSkipUnregisteredBlock,
+	VUE_BLOCK_SELECTOR,
+} from "./vueBlockRemountPlan";
 
 const pluginManagedChildren = new WeakSet<VueBlockChild>();
 const intersectionObserved = new WeakSet<HTMLElement>();
-const scrollListenerAttached = new WeakSet<HTMLElement>();
 const remountInFlight = new WeakSet<HTMLElement>();
-
-const BLOCK_SELECTOR = ".block-language-vue-interactive";
-
-function debounce(fn: () => void, ms: number): () => void {
-	let timer: ReturnType<typeof setTimeout> | null = null;
-	return () => {
-		if (timer != null) clearTimeout(timer);
-		timer = setTimeout(() => {
-			timer = null;
-			fn();
-		}, ms);
-	};
-}
-
-function blockIndexInPreview(el: HTMLElement, root: ParentNode): number {
-	return Array.from(root.querySelectorAll(BLOCK_SELECTOR)).indexOf(el);
-}
-
-function resolveCodeBlockContainer(code: HTMLElement): HTMLElement {
-	const block = code.closest(BLOCK_SELECTOR);
-	if (block instanceof HTMLElement) return block;
-	const pre = code.closest("pre");
-	if (pre?.parentElement instanceof HTMLElement) return pre.parentElement;
-	return code.parentElement ?? code;
-}
 
 export async function resolveVueBlockSource(
 	el: HTMLElement,
@@ -62,23 +48,12 @@ export async function resolveVueBlockSource(
 	if (!(file instanceof TFile)) return null;
 
 	const markdown = await plugin.app.vault.read(file);
-	const indexAttr = el.getAttr(DATA_VUE_BLOCK_INDEX);
-	if (indexAttr != null) {
-		const idx = Number.parseInt(indexAttr, 10);
-		if (!Number.isNaN(idx)) {
-			const blocks = listVisibleVueInteractiveBlocks(markdown);
-			const block = blocks[idx];
-			if (block) return { sourcePath, source: block.content };
-		}
-	}
-
-	if (root) {
-		const idx = blockIndexInPreview(el, root);
-		if (idx >= 0) {
-			const blocks = listVisibleVueInteractiveBlocks(markdown);
-			const block = blocks[idx];
-			if (block) return { sourcePath, source: block.content };
-		}
+	const fromMarkdown = pickVueBlockSourceFromMarkdown(markdown, {
+		indexAttr: el.getAttr(DATA_VUE_BLOCK_INDEX),
+		previewIndex: root ? blockIndexInPreview(el, root) : undefined,
+	});
+	if (fromMarkdown != null) {
+		return { sourcePath, source: fromMarkdown };
 	}
 
 	const code = el.querySelector("code.language-vue-interactive");
@@ -126,9 +101,11 @@ export async function ensureVueBlockMounted(
 
 	const existing = getVueBlock(el);
 	if (
-		!existing &&
-		el.matches(BLOCK_SELECTOR) &&
-		el.getAttr(DATA_VUE_MOUNTED) !== "1"
+		shouldSkipUnregisteredBlock({
+			hasVueBlock: !!existing,
+			isBlockLanguage: el.matches(VUE_BLOCK_SELECTOR),
+			mountedAttr: el.getAttr(DATA_VUE_MOUNTED),
+		})
 	) {
 		return;
 	}
@@ -191,20 +168,23 @@ export function remountStaleVueInteractiveIn(
 
 	const schedule = (node: HTMLElement): void => {
 		if (scheduled.has(node)) return;
-		if (getVueBlock(node)?.hasLiveSandbox()) return;
+		const block = getVueBlock(node);
 		if (
-			!getVueBlock(node) &&
-			node.matches(BLOCK_SELECTOR) &&
-			node.getAttr(DATA_VUE_MOUNTED) !== "1"
+			!shouldScheduleVueBlockRemount({
+				hasLiveSandbox: !!block?.hasLiveSandbox(),
+				hasVueBlock: !!block,
+				isBlockLanguage: node.matches(VUE_BLOCK_SELECTOR),
+				mountedAttr: node.getAttr(DATA_VUE_MOUNTED),
+				needsRemount: vueSandboxNeedsRemount(node),
+			})
 		) {
 			return;
 		}
-		if (!vueSandboxNeedsRemount(node)) return;
 		scheduled.add(node);
 		tasks.push(ensureVueBlockMounted(node, plugin, opts));
 	};
 
-	for (const node of Array.from(root.querySelectorAll(BLOCK_SELECTOR))) {
+	for (const node of Array.from(root.querySelectorAll(VUE_BLOCK_SELECTOR))) {
 		if (!(node instanceof HTMLElement)) continue;
 		schedule(node);
 	}
@@ -220,7 +200,7 @@ export function remountStaleVueInteractiveIn(
 		root.querySelectorAll(`[${DATA_VUE_MOUNTED}]`),
 	)) {
 		if (!(node instanceof HTMLElement)) continue;
-		if (node.matches(BLOCK_SELECTOR)) continue;
+		if (node.matches(VUE_BLOCK_SELECTOR)) continue;
 		schedule(node);
 	}
 
@@ -229,17 +209,19 @@ export function remountStaleVueInteractiveIn(
 	)) {
 		if (!(code instanceof HTMLElement)) continue;
 		const container = resolveCodeBlockContainer(code);
-		if (!vueSandboxNeedsRemount(container)) continue;
-		if (getVueBlock(container)) continue;
+		const source = code.getText().replace(/\n$/, "");
 		if (
-			container.matches(BLOCK_SELECTOR) &&
-			container.getAttr(DATA_VUE_MOUNTED) !== "1"
+			!shouldRemountFromCodeSource({
+				containerNeedsRemount: vueSandboxNeedsRemount(container),
+				hasVueBlock: !!getVueBlock(container),
+				isBlockLanguage: container.matches(VUE_BLOCK_SELECTOR),
+				mountedAttr: container.getAttr(DATA_VUE_MOUNTED),
+				source,
+				alreadyScheduled: scheduled.has(container),
+			})
 		) {
 			continue;
 		}
-		const source = code.getText().replace(/\n$/, "");
-		if (!source.trim()) continue;
-		if (scheduled.has(container)) continue;
 		scheduled.add(container);
 		tasks.push(
 			ensureVueBlockMounted(container, plugin, {
@@ -253,40 +235,6 @@ export function remountStaleVueInteractiveIn(
 	void Promise.all(tasks).catch((e) => {
 		const err = e instanceof Error ? e : new Error(String(e));
 		console.error("remount vue-interactive blocks", err);
-	});
-}
-
-function forEachMarkdownPreview(
-	plugin: ReactiveNotesVuePlugin,
-	fn: (root: HTMLElement, sourcePath: string) => void,
-): void {
-	plugin.app.workspace.iterateAllLeaves((leaf) => {
-		const { view } = leaf;
-		if (!(view instanceof MarkdownView) || !view.file) return;
-		if (view.getMode() === "source") return;
-		const root = view.previewMode?.containerEl ?? view.contentEl;
-		fn(root, view.file.path);
-	});
-}
-
-function attachPreviewScrollListeners(
-	plugin: ReactiveNotesVuePlugin,
-	scheduleRemount: () => void,
-): void {
-	forEachMarkdownPreview(plugin, (root) => {
-		const scrollers = [
-			root,
-			root.querySelector(".markdown-preview-view"),
-			root.querySelector(".markdown-preview-sizer"),
-		];
-		for (const el of scrollers) {
-			if (!(el instanceof HTMLElement)) continue;
-			if (scrollListenerAttached.has(el)) continue;
-			scrollListenerAttached.add(el);
-			plugin.registerDomEvent(el, "scroll", scheduleRemount, {
-				passive: true,
-			});
-		}
 	});
 }
 

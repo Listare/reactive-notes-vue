@@ -17,6 +17,9 @@ sandbox-tailwind.css
 # Exclude sourcemaps
 *.map
 
+# Test coverage
+coverage
+
 # obsidian
 data.json
 test-vault/.obsidian/plugins/reactive-notes-vue/main.js

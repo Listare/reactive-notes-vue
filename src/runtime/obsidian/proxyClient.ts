@@ -1,10 +1,18 @@
+import {
+	attachBridgePortListener,
+	createPendingCallTable,
+	createRpcProxyFactory,
+	decodeClientWireValue,
+	readRefId,
+} from "../bridge/proxyClientCore";
+import { isWireRefObject } from "../bridge/wireCodecBase";
 import type {
 	ObsidianBridgeInbound,
 	ObsidianBridgeOutbound,
 	ObsidianProxyTarget,
 	ObsidianWireValue,
 } from "./bridgeProtocol";
-import { encodeWireArgs, isWireRef } from "./wireCodec";
+import { encodeWireArgs } from "./wireCodec";
 
 /** Sandbox `@obsidian` module shape (`default` = App proxy). */
 export interface ObsidianSandboxModule {
@@ -14,9 +22,9 @@ export interface ObsidianSandboxModule {
 
 const REF_ID = Symbol("obsidianProxyRef");
 
-type PendingCall = {
-	resolve: (value: unknown) => void;
-	reject: (error: Error) => void;
+type ObsidianProxyContext = {
+	target: ObsidianProxyTarget;
+	refId?: number;
 };
 
 function isBridgeOutbound(data: unknown): data is ObsidianBridgeOutbound {
@@ -29,64 +37,40 @@ function isBridgeOutbound(data: unknown): data is ObsidianBridgeOutbound {
 	);
 }
 
-function readRefId(value: unknown): number | undefined {
-	if (typeof value !== "function" && typeof value !== "object") {
-		return undefined;
-	}
-	if (value == null) return undefined;
-	const id = (value as Record<symbol, unknown>)[REF_ID];
-	return typeof id === "number" ? id : undefined;
-}
-
 /**
  * Builds the `@obsidian` module for sandbox scripts (`default` = App, named = obsidian exports).
  */
 export function createObsidianSandboxModule(
 	port: MessagePort,
 ): ObsidianSandboxModule {
-	let callId = 0;
-	const pending = new Map<number, PendingCall>();
+	const pending = createPendingCallTable();
 
 	const send = (message: ObsidianBridgeInbound): void => {
 		port.postMessage(message);
 	};
 
-	port.addEventListener("message", (event: MessageEvent) => {
-		const data: unknown = event.data;
-		if (!isBridgeOutbound(data)) return;
-		const entry = pending.get(data.callId);
-		if (!entry) return;
-		pending.delete(data.callId);
-		if (data.kind === "obsidian-bridge-error") {
-			entry.reject(new Error(data.message));
-			return;
-		}
-		entry.resolve(decodeValue(data.value));
-	});
-
 	const encodeRef = (obj: object): ObsidianWireValue => {
-		const refId = readRefId(obj);
+		const refId = readRefId(obj, REF_ID);
 		if (refId == null) {
 			throw new Error("无法将沙盒对象传回 Obsidian API。");
 		}
 		return { __ref: refId };
 	};
 
-	const call = (
-		target: ObsidianProxyTarget,
-		refId: number | undefined,
+	const invoke = (
+		ctx: ObsidianProxyContext,
 		path: string[],
 		args: unknown[],
 		construct: boolean,
 	): Promise<unknown> => {
-		const id = ++callId;
+		const id = pending.allocate();
 		return new Promise((resolve, reject) => {
 			pending.set(id, { resolve, reject });
 			send({
 				kind: "obsidian-bridge-call",
 				callId: id,
-				target,
-				refId,
+				target: ctx.target,
+				refId: ctx.refId,
 				path,
 				args: encodeWireArgs(args, encodeRef),
 				construct,
@@ -94,67 +78,39 @@ export function createObsidianSandboxModule(
 		});
 	};
 
+	const proxies = createRpcProxyFactory<ObsidianProxyContext>({
+		refIdSymbol: REF_ID,
+		getRefId: (ctx) => ctx.refId,
+		invoke,
+		shouldExposeThen: (ctx, path) =>
+			!(ctx.target === "ref" && path.length === 0),
+	});
+
 	const createRefProxy = (refId: number): unknown =>
-		createProxy("ref", refId, []);
-
-	const createProxy = (
-		target: ObsidianProxyTarget,
-		refId: number | undefined,
-		path: string[],
-	): unknown => {
-		const callable = function () {
-			/* proxy target */
-		} as unknown as {
-			(): unknown;
-			new (...args: unknown[]): unknown;
-		};
-
-		return new Proxy(callable, {
-			get(_t, prop) {
-				if (prop === REF_ID) return refId;
-				// Root ref proxies must not be thenable — `await getActiveFile()` would
-				// otherwise re-enter RPC forever. Property/method chains still use `then`.
-				if (prop === "then") {
-					const canAutoInvoke = target !== "ref" || path.length > 0;
-					if (!canAutoInvoke) return undefined;
-					return (
-						resolve: (value: unknown) => void,
-						reject: (reason?: unknown) => void,
-					) => {
-						call(target, refId, path, [], false).then(resolve, reject);
-					};
-				}
-				if (typeof prop === "symbol") return undefined;
-				return createProxy(target, refId, [...path, String(prop)]);
-			},
-			apply(_t, _thisArg, args) {
-				return call(target, refId, path, args, false);
-			},
-			construct(_t, args) {
-				return call(target, refId, path, args, true);
-			},
-		});
-	};
+		proxies.createProxy({ target: "ref", refId }, []);
 
 	function decodeValue(value: ObsidianWireValue): unknown {
-		if (isWireRef(value)) {
-			return createRefProxy(value.__ref);
-		}
-		if (Array.isArray(value)) {
-			return value.map((item) => decodeValue(item));
-		}
-		if (value === null || typeof value !== "object") {
-			return value;
-		}
-		const out: Record<string, unknown> = {};
-		for (const [key, child] of Object.entries(value)) {
-			out[key] = decodeValue(child);
-		}
-		return out;
+		return decodeClientWireValue(value, {
+			isRef: isWireRefObject,
+			createRefProxy,
+		});
 	}
 
+	attachBridgePortListener(port, pending, {
+		isOutbound: isBridgeOutbound,
+		getCallId: (data) => data.callId,
+		isError: (data) => data.kind === "obsidian-bridge-error",
+		getErrorMessage: (data) =>
+			data.kind === "obsidian-bridge-error" ? data.message : "",
+		getResultValue: (data) =>
+			data.kind === "obsidian-bridge-result" ? data.value : null,
+		decodeValue: (value) => decodeValue(value as ObsidianWireValue),
+	});
+
 	return new Proxy(
-		{ default: createProxy("app", undefined, []) } as ObsidianSandboxModule,
+		{
+			default: proxies.createProxy({ target: "app" }, []),
+		} as ObsidianSandboxModule,
 		{
 			get(target, prop) {
 				if (prop === "default") {
@@ -163,7 +119,10 @@ export function createObsidianSandboxModule(
 				if (typeof prop === "symbol") {
 					return Reflect.get(target, prop) as unknown;
 				}
-				return createProxy("export", undefined, [String(prop)]);
+				return proxies.createProxy(
+					{ target: "export" },
+					[String(prop)],
+				);
 			},
 		},
 	);

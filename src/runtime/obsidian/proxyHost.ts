@@ -1,31 +1,24 @@
 import type { App } from "obsidian";
 import * as Obsidian from "obsidian";
+import { dispatchProxyCall } from "../bridge/dispatchInvocation";
+import { handleBridgeCallSync } from "../bridge/proxyHostCore";
+import { createRefRegistry } from "../bridge/refRegistry";
 import type {
 	ObsidianBridgeInbound,
 	ObsidianBridgeOutbound,
 	ObsidianProxyTarget,
 	ObsidianWireValue,
 } from "./bridgeProtocol";
-import { encodeWireValue, isWireRef } from "./wireCodec";
-
-function resolvePath(root: unknown, path: string[]): unknown {
-	let cur: unknown = root;
-	for (const key of path) {
-		if (cur == null) {
-			return undefined;
-		}
-		cur = (cur as Record<string, unknown>)[key];
-	}
-	return cur;
-}
+import { encodeWireValue } from "./wireCodec";
 
 /**
  * Handles Obsidian API calls from the sandbox iframe on behalf of user scripts.
  */
 export class ObsidianProxyHost {
 	private readonly exportsRoot: Record<string, unknown>;
-	private readonly refs = new Map<number, object>();
-	private nextRef = 1;
+	private readonly refs = createRefRegistry({
+		staleRefMessage: "Obsidian 对象引用已失效。",
+	});
 
 	constructor(private readonly app: App) {
 		this.exportsRoot = { ...Obsidian };
@@ -37,62 +30,33 @@ export class ObsidianProxyHost {
 
 	handleMessage(data: ObsidianBridgeInbound): ObsidianBridgeOutbound | null {
 		if (data.kind === "obsidian-bridge-release") {
-			this.refs.delete(data.ref);
+			this.refs.releaseRef(data.ref);
 			return null;
 		}
 
-		try {
-			const value = this.dispatch(
-				data.target,
-				data.refId,
-				data.path,
-				data.args,
-				data.construct,
-			);
-			return {
+		return handleBridgeCallSync({
+			callId: data.callId,
+			run: () =>
+				this.dispatch(
+					data.target,
+					data.refId,
+					data.path,
+					data.args,
+					data.construct,
+				),
+			encodeValue: (value) =>
+				encodeWireValue(value, (obj) => this.refs.storeRef(obj)),
+			buildResult: (callId, value) => ({
 				kind: "obsidian-bridge-result",
-				callId: data.callId,
-				value: encodeWireValue(value, (obj) => this.storeRef(obj)),
-			};
-		} catch (e) {
-			const message = e instanceof Error ? e.message : String(e);
-			return {
+				callId,
+				value: value as ObsidianWireValue,
+			}),
+			buildError: (callId, message) => ({
 				kind: "obsidian-bridge-error",
-				callId: data.callId,
+				callId,
 				message,
-			};
-		}
-	}
-
-	private storeRef(value: object): ObsidianWireValue {
-		const id = this.nextRef++;
-		this.refs.set(id, value);
-		return { __ref: id };
-	}
-
-	private decodeArg(value: ObsidianWireValue): unknown {
-		if (isWireRef(value)) {
-			const obj = this.refs.get(value.__ref);
-			if (!obj) {
-				throw new Error("Obsidian 对象引用已失效。");
-			}
-			return obj;
-		}
-		if (Array.isArray(value)) {
-			return value.map((item) => this.decodeArg(item));
-		}
-		if (value === null || typeof value !== "object") {
-			return value;
-		}
-		const out: Record<string, unknown> = {};
-		for (const [key, child] of Object.entries(value)) {
-			out[key] = this.decodeArg(child);
-		}
-		return out;
-	}
-
-	private decodeArgs(args: ObsidianWireValue[]): unknown[] {
-		return args.map((arg) => this.decodeArg(arg));
+			}),
+		});
 	}
 
 	private rootFor(target: ObsidianProxyTarget, refId?: number): unknown {
@@ -100,11 +64,7 @@ export class ObsidianProxyHost {
 			if (refId == null) {
 				throw new Error("缺少 Obsidian 对象引用 id。");
 			}
-			const obj = this.refs.get(refId);
-			if (!obj) {
-				throw new Error("Obsidian 对象引用已失效。");
-			}
-			return obj;
+			return this.refs.resolveRef(refId);
 		}
 		return target === "app" ? this.app : this.exportsRoot;
 	}
@@ -116,35 +76,15 @@ export class ObsidianProxyHost {
 		args: ObsidianWireValue[],
 		construct: boolean,
 	): unknown {
-		const root = this.rootFor(target, refId);
-		const callArgs = this.decodeArgs(args);
-		const owner =
-			path.length > 0 ? resolvePath(root, path.slice(0, -1)) : root;
-		const resolved =
-			path.length > 0 ? resolvePath(root, path) : root;
-
-		if (construct) {
-			if (typeof resolved !== "function") {
-				throw new Error(
-					`无法构造 Obsidian API：${target}/${path.join(".")}`,
-				);
-			}
-			return new (resolved as new (...a: unknown[]) => unknown)(...callArgs);
-		}
-
-		if (typeof resolved === "function") {
-			return (resolved as (...a: unknown[]) => unknown).apply(
-				owner,
-				callArgs,
-			);
-		}
-
-		if (callArgs.length === 0) {
-			return resolved;
-		}
-
-		throw new Error(
-			`无法调用 Obsidian API：${target}/${path.join(".")}`,
-		);
+		return dispatchProxyCall({
+			root: this.rootFor(target, refId),
+			path,
+			args: this.refs.decodeArgs(args),
+			construct,
+			formatConstructError: (pathLabel) =>
+				`无法构造 Obsidian API：${target}/${pathLabel}`,
+			formatCallError: (pathLabel) =>
+				`无法调用 Obsidian API：${target}/${pathLabel}`,
+		});
 	}
 }

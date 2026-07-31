@@ -2,24 +2,20 @@ import {
 	isNodeBuiltinAllowed,
 	nodeBuiltinDeniedMessage,
 } from "../../builtin/isNodeBuiltin";
+import { dispatchProxyCall } from "../bridge/dispatchInvocation";
+import { handleBridgeCallAsync } from "../bridge/proxyHostCore";
+import { createRefRegistry } from "../bridge/refRegistry";
 import type {
 	NodeBridgeInbound,
 	NodeBridgeOutbound,
 	NodeProxyTarget,
 	NodeWireValue,
 } from "./bridgeProtocol";
-import { encodeWireValue, isWireRef, isWireUint8Array, decodeWireUint8Array } from "./wireCodec";
-
-function resolvePath(root: unknown, path: string[]): unknown {
-	let cur: unknown = root;
-	for (const key of path) {
-		if (cur == null) {
-			return undefined;
-		}
-		cur = (cur as Record<string, unknown>)[key];
-	}
-	return cur;
-}
+import {
+	decodeWireUint8Array,
+	encodeWireValue,
+	isWireUint8Array,
+} from "./wireCodec";
 
 type NodeRequireFn = (id: string) => unknown;
 
@@ -55,8 +51,17 @@ function isRealNodeBuiltin(id: string): boolean {
  */
 export class NodeProxyHost {
 	private readonly modules = new Map<string, unknown>();
-	private readonly refs = new Map<number, object>();
-	private nextRef = 1;
+	private readonly refs = createRefRegistry({
+		staleRefMessage: "Node 对象引用已失效。",
+		decodeLeaf: (value) => {
+			if (isWireUint8Array(value as NodeWireValue)) {
+				return decodeWireUint8Array(
+					(value as { __nodeUint8Array: string }).__nodeUint8Array,
+				);
+			}
+			return undefined;
+		},
+	});
 	private enableExtended: boolean;
 
 	constructor(enableExtended = false) {
@@ -76,66 +81,34 @@ export class NodeProxyHost {
 		data: NodeBridgeInbound,
 	): Promise<NodeBridgeOutbound | null> {
 		if (data.kind === "node-bridge-release") {
-			this.refs.delete(data.ref);
+			this.refs.releaseRef(data.ref);
 			return null;
 		}
 
-		try {
-			const value = await this.dispatch(
-				data.target,
-				data.moduleId,
-				data.refId,
-				data.path,
-				data.args,
-				data.construct,
-			);
-			return {
+		return handleBridgeCallAsync({
+			callId: data.callId,
+			run: () =>
+				this.dispatch(
+					data.target,
+					data.moduleId,
+					data.refId,
+					data.path,
+					data.args,
+					data.construct,
+				),
+			encodeValue: (value) =>
+				encodeWireValue(value, (obj) => this.refs.storeRef(obj)),
+			buildResult: (callId, value) => ({
 				kind: "node-bridge-result",
-				callId: data.callId,
-				value: encodeWireValue(value, (obj) => this.storeRef(obj)),
-			};
-		} catch (e) {
-			const message = e instanceof Error ? e.message : String(e);
-			return {
+				callId,
+				value: value as NodeWireValue,
+			}),
+			buildError: (callId, message) => ({
 				kind: "node-bridge-error",
-				callId: data.callId,
+				callId,
 				message,
-			};
-		}
-	}
-
-	private storeRef(value: object): NodeWireValue {
-		const id = this.nextRef++;
-		this.refs.set(id, value);
-		return { __ref: id };
-	}
-
-	private decodeArg(value: NodeWireValue): unknown {
-		if (isWireRef(value)) {
-			const obj = this.refs.get(value.__ref);
-			if (!obj) {
-				throw new Error("Node 对象引用已失效。");
-			}
-			return obj;
-		}
-		if (isWireUint8Array(value)) {
-			return decodeWireUint8Array(value.__nodeUint8Array);
-		}
-		if (Array.isArray(value)) {
-			return value.map((item) => this.decodeArg(item));
-		}
-		if (value === null || typeof value !== "object") {
-			return value;
-		}
-		const out: Record<string, unknown> = {};
-		for (const [key, child] of Object.entries(value)) {
-			out[key] = this.decodeArg(child);
-		}
-		return out;
-	}
-
-	private decodeArgs(args: NodeWireValue[]): unknown[] {
-		return args.map((arg) => this.decodeArg(arg));
+			}),
+		});
 	}
 
 	private loadModule(moduleId: string): unknown {
@@ -164,11 +137,7 @@ export class NodeProxyHost {
 			if (refId == null) {
 				throw new Error("缺少 Node 对象引用 id。");
 			}
-			const obj = this.refs.get(refId);
-			if (!obj) {
-				throw new Error("Node 对象引用已失效。");
-			}
-			return obj;
+			return this.refs.resolveRef(refId);
 		}
 		if (!moduleId) {
 			throw new Error("缺少 Node 模块 id。");
@@ -176,56 +145,24 @@ export class NodeProxyHost {
 		return this.loadModule(moduleId);
 	}
 
-	private async dispatch(
+	private dispatch(
 		target: NodeProxyTarget,
 		moduleId: string | undefined,
 		refId: number | undefined,
 		path: string[],
 		args: NodeWireValue[],
 		construct: boolean,
-	): Promise<unknown> {
-		const root = this.rootFor(target, moduleId, refId);
-		const callArgs = this.decodeArgs(args);
-		const owner =
-			path.length > 0 ? resolvePath(root, path.slice(0, -1)) : root;
-		const resolved =
-			path.length > 0 ? resolvePath(root, path) : root;
-
-		let value: unknown;
-
-		if (construct) {
-			if (typeof resolved !== "function") {
-				throw new Error(
-					`无法构造 Node API：node:${moduleId ?? "?"}/${path.join(".")}`,
-				);
-			}
-			value = new (resolved as new (...a: unknown[]) => unknown)(
-				...callArgs,
-			);
-		} else if (typeof resolved === "function") {
-			value = (resolved as (...a: unknown[]) => unknown).apply(
-				owner,
-				callArgs,
-			);
-		} else if (callArgs.length === 0) {
-			value = resolved;
-		} else {
-			throw new Error(
-				`无法调用 Node API：node:${moduleId ?? "?"}/${path.join(".")}`,
-			);
-		}
-
-		return awaitPromiseIfNeeded(value);
+	): unknown {
+		return dispatchProxyCall({
+			root: this.rootFor(target, moduleId, refId),
+			path,
+			args: this.refs.decodeArgs(args),
+			construct,
+			awaitPromises: true,
+			formatConstructError: (pathLabel) =>
+				`无法构造 Node API：node:${moduleId ?? "?"}/${pathLabel}`,
+			formatCallError: (pathLabel) =>
+				`无法调用 Node API：node:${moduleId ?? "?"}/${pathLabel}`,
+		});
 	}
-}
-
-function awaitPromiseIfNeeded(value: unknown): unknown {
-	if (
-		value != null &&
-		(typeof value === "object" || typeof value === "function") &&
-		typeof (value as { then?: unknown }).then === "function"
-	) {
-		return Promise.resolve(value as Promise<unknown>);
-	}
-	return value;
 }

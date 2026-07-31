@@ -28,6 +28,13 @@ import {
 import { loadMathJaxPreamble } from "../math/loadMathJaxPreamble";
 import type ReactiveNotesVuePlugin from "../main";
 import { isSandboxAbortedError } from "./sandboxAbort";
+import {
+	findVisibleBlockIndex,
+	isRenderEpochStale,
+	resolveVisibleBlockSource,
+	SANDBOX_TIMEOUT_BACKOFF_MS,
+	shouldBackoffOnSandboxTimeout,
+} from "./vueBlockSourceResolve";
 
 export class VueBlockChild extends MarkdownRenderChild {
 	private sandbox: SandboxFrame | null = null;
@@ -38,6 +45,7 @@ export class VueBlockChild extends MarkdownRenderChild {
 	private renderBackoffUntil = 0;
 	/** Coalesces concurrent render/remount calls into one in-flight pass. */
 	private activeRender: Promise<void> | null = null;
+	private lastSource = "";
 
 	constructor(
 		containerEl: HTMLElement,
@@ -86,32 +94,11 @@ export class VueBlockChild extends MarkdownRenderChild {
 	resolveSourceForRefresh(
 		visibleBlocks: VueInteractiveBlockInfo[],
 	): string | null {
-		if (
-			this.visibleBlockIndex >= 0 &&
-			this.visibleBlockIndex < visibleBlocks.length
-		) {
-			return visibleBlocks[this.visibleBlockIndex]!.content;
-		}
-		const normalized = this.lastSource.trim();
-		const byContent = visibleBlocks.find(
-			(b) => b.content.trim() === normalized,
+		return resolveVisibleBlockSource(
+			this.lastSource,
+			this.visibleBlockIndex,
+			visibleBlocks,
 		);
-		return byContent?.content ?? null;
-	}
-
-	private lastSource = "";
-
-	private rememberBlockIndex(source: string, markdown: string): void {
-		const normalized = source.trim();
-		let visibleIdx = 0;
-		for (const block of listVisibleVueInteractiveBlocks(markdown)) {
-			if (block.content.trim() === normalized) {
-				this.visibleBlockIndex = visibleIdx;
-				return;
-			}
-			visibleIdx++;
-		}
-		this.visibleBlockIndex = -1;
 	}
 
 	private currentTheme() {
@@ -156,7 +143,10 @@ export class VueBlockChild extends MarkdownRenderChild {
 		const epoch = ++this.renderEpoch;
 		this.lastSource = source;
 		if (markdownForIndex != null) {
-			this.rememberBlockIndex(source, markdownForIndex);
+			this.visibleBlockIndex = findVisibleBlockIndex(
+				source,
+				markdownForIndex,
+			);
 		}
 		persistVueBlockRemountMetadata(
 			this.containerEl,
@@ -227,15 +217,11 @@ export class VueBlockChild extends MarkdownRenderChild {
 			clearVueSandboxAlive(this.containerEl);
 			clearVueBlockVaultDependencies(this);
 			const err = e instanceof Error ? e : new Error(String(e));
-			if (
-				err.message.includes("沙盒初始化超时") ||
-				err.message.includes("沙盒渲染超时")
-			) {
-				this.renderBackoffUntil = Date.now() + 60_000;
+			if (shouldBackoffOnSandboxTimeout(err.message)) {
+				this.renderBackoffUntil = Date.now() + SANDBOX_TIMEOUT_BACKOFF_MS;
 			}
 			const loc = parseModuleLoadErrorLocation(err.message);
 			renderError(this.containerEl, err.message, {
-				// Compile/parse/transpile: message already has context; hide engine stacks.
 				stack: isCompileTimeError(err) ? undefined : err.stack,
 				loc,
 			});
@@ -263,7 +249,7 @@ export class VueBlockChild extends MarkdownRenderChild {
 	}
 
 	private abortRenderIfStale(epoch: number): boolean {
-		if (epoch === this.renderEpoch) return false;
+		if (!isRenderEpochStale(epoch, this.renderEpoch)) return false;
 		this.teardownSandbox();
 		return true;
 	}

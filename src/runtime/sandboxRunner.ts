@@ -15,21 +15,26 @@ import { executeModule } from "./executeModule";
 import { mountWithSuspense } from "./mountWithSuspense";
 import { resolveSharedRuntime } from "./resolveSharedRuntime";
 import { enhanceModuleLoadError, rewriteRuntimeStack } from "./stackTrace";
-import type { StackCodeRegion } from "./stackTrace";
+import { createPrepareMeasureOutbound } from "./prepareMeasureContract";
 import type {
 	SandboxInbound,
 	SandboxOutbound,
 	SandboxStyleChunk,
 } from "./sandboxProtocol";
 import { measureMountHeight } from "./measureMountHeight";
+import {
+	type ActiveRenderSession,
+	buildSandboxRenderErrorOutbound,
+	buildSandboxRuntimeErrorOutbound,
+	clampSandboxReportedHeight,
+	planBridgePortAssignment,
+	planSandboxRunnerInbound,
+	shouldReportRuntimeError,
+} from "./sandboxRunnerPlan";
 
 const { Vue } = resolveSharedRuntime();
 
 let vueApp: VueApp | null = null;
-type ActiveRenderSession = {
-	requestId: string;
-	stackRegions: StackCodeRegion[];
-};
 let activeRender: ActiveRenderSession | null = null;
 const styleEls: HTMLStyleElement[] = [];
 let resizeObserver: ResizeObserver | null = null;
@@ -60,17 +65,20 @@ function normalizeError(err: unknown): Error {
 	return err instanceof Error ? err : new Error(String(err));
 }
 
-function reportRuntimeError(err: unknown, _detail?: string): void {
-	if (!activeRender) return;
+function reportRuntimeError(err: unknown): void {
+	if (!shouldReportRuntimeError(activeRender != null) || !activeRender) {
+		return;
+	}
 	const error = normalizeError(err);
-	post({
-		type: "vue-sandbox-runtime-error",
-		requestId: activeRender.requestId,
-		message: error.message,
-		stack:
-			rewriteRuntimeStack(error.stack, activeRender.stackRegions) ??
-			error.stack,
-	});
+	post(
+		buildSandboxRuntimeErrorOutbound({
+			requestId: activeRender.requestId,
+			message: error.message,
+			stack:
+				rewriteRuntimeStack(error.stack, activeRender.stackRegions) ??
+				error.stack,
+		}),
+	);
 }
 
 function clearMount(): void {
@@ -126,13 +134,12 @@ function measureSandboxContentHeight(): number {
 }
 
 function reportResize(requestId: string): void {
-	const height = Math.max(measureSandboxContentHeight(), 1);
+	const height = clampSandboxReportedHeight(measureSandboxContentHeight());
 	post({ type: "vue-sandbox-resize", requestId, height });
 }
 
 function requestMeasure(requestId: string): void {
-	// Ask the host to collapse the iframe first so document scrollHeight can shrink.
-	post({ type: "vue-sandbox-prepare-measure", requestId });
+	post(createPrepareMeasureOutbound(requestId));
 }
 
 function scheduleReportResize(requestId: string): void {
@@ -147,12 +154,17 @@ function scheduleReportResize(requestId: string): void {
 	});
 }
 
-function watchResize(requestId: string): void {
+function stopResizeWatch(): void {
 	resizeObserver?.disconnect();
+	resizeObserver = null;
 	if (pendingResizeFrame) {
 		cancelAnimationFrame(pendingResizeFrame);
 		pendingResizeFrame = 0;
 	}
+}
+
+function watchResize(requestId: string): void {
+	stopResizeWatch();
 	const mount = ensureMountElement();
 	resizeObserver = new ResizeObserver(() => {
 		scheduleReportResize(requestId);
@@ -188,17 +200,14 @@ async function handleRender(
 	const mountEl = ensureMountElement();
 	applyScopeRoot(mountEl, msg.scopeId);
 	applySandboxTheme(msg.theme);
-	// activeRender before mount: onMounted runs inside mount() (post-flush), so
-	// lifecycle errors must be reportable before vue-sandbox-rendered is posted.
+	// activeRender before mount: onMounted runs inside mount() (post-flush).
 	activeRender = {
 		requestId: msg.requestId,
 		stackRegions: msg.stackRegions,
 	};
-	// Wrap in Suspense so script-setup top-level await (async setup) can render.
-	// Wait until resolve before announcing rendered — avoids empty-mount remount.
 	const { app, whenReady } = mountWithSuspense(component, mountEl, {
-		onRuntimeError: (err, info) => {
-			reportRuntimeError(err, info);
+		onRuntimeError: (err) => {
+			reportRuntimeError(err);
 		},
 	});
 	vueApp = app;
@@ -207,72 +216,69 @@ async function handleRender(
 	watchResize(msg.requestId);
 }
 
+function assignBridgePorts(ports: readonly MessagePort[]): void {
+	const plan = planBridgePortAssignment(ports.length);
+	if (plan.assignObsidian && ports[0]) {
+		obsidianPort?.close();
+		obsidianPort = ports[0];
+		obsidianPort.start();
+	}
+	if (plan.assignNode && ports[1]) {
+		nodePort?.close();
+		nodePort = ports[1];
+		nodePort.start();
+	}
+}
+
 window.addEventListener("message", (event: MessageEvent) => {
 	if (event.ports.length > 0) {
-		if (event.ports[0]) {
-			obsidianPort?.close();
-			obsidianPort = event.ports[0];
-			obsidianPort.start();
-		}
-		if (event.ports[1]) {
-			nodePort?.close();
-			nodePort = event.ports[1];
-			nodePort.start();
-		}
+		assignBridgePorts(event.ports);
 	}
 
-	const data = event.data as SandboxInbound;
-	if (!data || typeof data !== "object" || !("type" in data)) {
-		return;
-	}
-
-	if (data.type === "vue-sandbox-render") {
-		void handleRender(data).catch((e) => {
-			clearMount();
-			const err = enhanceModuleLoadError(e, data.stackRegions);
-			post({
-				type: "vue-sandbox-error",
-				requestId: data.requestId,
-				message: err.message,
-				stack: rewriteRuntimeStack(err.stack, data.stackRegions) ?? err.stack,
+	const action = planSandboxRunnerInbound(event.data);
+	switch (action.type) {
+		case "render": {
+			const msg = action.message;
+			void handleRender(msg).catch((e) => {
+				clearMount();
+				const err = enhanceModuleLoadError(e, msg.stackRegions);
+				post(
+					buildSandboxRenderErrorOutbound({
+						requestId: msg.requestId,
+						message: err.message,
+						stack:
+							rewriteRuntimeStack(err.stack, msg.stackRegions) ??
+							err.stack,
+					}),
+				);
 			});
-		});
-		return;
-	}
-
-	if (data.type === "vue-sandbox-unmount") {
-		resizeObserver?.disconnect();
-		resizeObserver = null;
-		if (pendingResizeFrame) {
-			cancelAnimationFrame(pendingResizeFrame);
-			pendingResizeFrame = 0;
+			return;
 		}
-		clearMount();
-		return;
-	}
-
-	if (data.type === "vue-sandbox-theme") {
-		applySandboxTheme(data.theme);
-		return;
-	}
-
-	if (data.type === "vue-sandbox-remeasure") {
-		reportResize(data.requestId);
-		return;
-	}
-
-	if (data.type === "vue-sandbox-resync-ready") {
-		post({ type: "vue-sandbox-ready" });
+		case "unmount":
+			stopResizeWatch();
+			clearMount();
+			return;
+		case "theme":
+			applySandboxTheme(action.theme);
+			return;
+		case "remeasure":
+			reportResize(action.requestId);
+			return;
+		case "resync-ready":
+			post({ type: "vue-sandbox-ready" });
+			return;
+		case "ignore":
+			return;
 	}
 });
 
 window.addEventListener("error", (event) => {
-	if (!activeRender) return;
+	if (!shouldReportRuntimeError(activeRender != null)) return;
 	reportRuntimeError(event.error ?? event.message);
 });
 
 window.addEventListener("unhandledrejection", (event) => {
-	if (!activeRender) return;
+	if (!shouldReportRuntimeError(activeRender != null)) return;
 	reportRuntimeError(event.reason);
 });
 

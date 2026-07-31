@@ -1,3 +1,4 @@
+import { parseImportSpecifier } from "./createBuiltinImportRewriter";
 import { rewriteGetThemeImportsInCode } from "./rewriteGetThemeImports";
 import { rewriteMathImportsInCode } from "./rewriteMathImports";
 import { rewriteNodeImportsInCode } from "./rewriteNodeImports";
@@ -7,22 +8,12 @@ import { rewritePiniaImportsInCode } from "./rewritePiniaImports";
 export const VUE_IMPORT_RE =
 	/import\s*{\s*([^}]+)\s*}\s*from\s*['"]vue['"];?(?:\r?\n)?/g;
 
-function parseSpecifier(spec: string): string {
-	const trimmed = spec.trim();
-	if (/^type\s+/i.test(trimmed)) return "";
-	const asMatch = /^([\w$]+)\s+as\s+([\w$]+)$/.exec(trimmed);
-	if (asMatch) {
-		return `${asMatch[1]}: ${asMatch[2]}`;
-	}
-	return trimmed;
-}
-
 /** Converts vue import statements to destructuring from __vue__. */
 export function rewriteVueImportsInCode(code: string): string {
 	return code.replace(VUE_IMPORT_RE, (_, specifiers: string) => {
 		const parts = specifiers
 			.split(",")
-			.map((s: string) => parseSpecifier(s))
+			.map((s: string) => parseImportSpecifier(s))
 			.filter(Boolean);
 		return `const { ${parts.join(", ")} } = __vue__;\n`;
 	});

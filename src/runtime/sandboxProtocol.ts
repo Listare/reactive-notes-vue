@@ -48,3 +48,87 @@ export type SandboxOutbound =
 	  }
 	| { type: "vue-sandbox-resize"; requestId: string; height: number }
 	| { type: "vue-sandbox-prepare-measure"; requestId: string };
+
+const INBOUND_TYPES = new Set<SandboxInbound["type"]>([
+	"vue-sandbox-render",
+	"vue-sandbox-unmount",
+	"vue-sandbox-theme",
+	"vue-sandbox-resync-ready",
+	"vue-sandbox-remeasure",
+]);
+
+const OUTBOUND_TYPES = new Set<SandboxOutbound["type"]>([
+	"vue-sandbox-ready",
+	"vue-sandbox-rendered",
+	"vue-sandbox-error",
+	"vue-sandbox-runtime-error",
+	"vue-sandbox-resize",
+	"vue-sandbox-prepare-measure",
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+function isVueInteractiveTheme(value: unknown): value is VueInteractiveTheme {
+	return value === "dark" || value === "light";
+}
+
+/** Runtime guard for parent → iframe messages. */
+export function isSandboxInbound(data: unknown): data is SandboxInbound {
+	if (!isRecord(data) || typeof data.type !== "string") return false;
+	if (!INBOUND_TYPES.has(data.type as SandboxInbound["type"])) return false;
+	switch (data.type) {
+		case "vue-sandbox-resync-ready":
+			return true;
+		case "vue-sandbox-unmount":
+		case "vue-sandbox-remeasure":
+			return typeof data.requestId === "string";
+		case "vue-sandbox-theme":
+			return (
+				typeof data.requestId === "string" &&
+				isVueInteractiveTheme(data.theme)
+			);
+		case "vue-sandbox-render":
+			return (
+				typeof data.requestId === "string" &&
+				typeof data.moduleCode === "string" &&
+				Array.isArray(data.stackRegions) &&
+				Array.isArray(data.styles) &&
+				typeof data.scopeId === "string" &&
+				isVueInteractiveTheme(data.theme) &&
+				typeof data.mathJaxPreamble === "string" &&
+				typeof data.enableExtendedNodeBuiltins === "boolean"
+			);
+		default:
+			return false;
+	}
+}
+
+/** Runtime guard for iframe → parent messages. */
+export function isSandboxOutbound(data: unknown): data is SandboxOutbound {
+	if (!isRecord(data) || typeof data.type !== "string") return false;
+	if (!OUTBOUND_TYPES.has(data.type as SandboxOutbound["type"])) return false;
+	switch (data.type) {
+		case "vue-sandbox-ready":
+			return true;
+		case "vue-sandbox-rendered":
+		case "vue-sandbox-prepare-measure":
+			return typeof data.requestId === "string";
+		case "vue-sandbox-error":
+		case "vue-sandbox-runtime-error":
+			return (
+				typeof data.requestId === "string" &&
+				typeof data.message === "string" &&
+				(data.stack === undefined || typeof data.stack === "string")
+			);
+		case "vue-sandbox-resize":
+			return (
+				typeof data.requestId === "string" &&
+				typeof data.height === "number" &&
+				Number.isFinite(data.height)
+			);
+		default:
+			return false;
+	}
+}
