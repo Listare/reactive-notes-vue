@@ -28,5 +28,8 @@ test-vault/.obsidian/plugins/reactive-notes-vue/styles.css
 test-vault/.obsidian/workspace.json
 test-vault/.obsidian/workspace-mobile.json
 
+# Pinia persist dumps written while exercising the demo vault
+test-vault/**/pinia-*.json
+
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
