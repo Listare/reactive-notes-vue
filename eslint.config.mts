@@ -74,6 +74,7 @@ export default tseslint.config(
 		files: [
 			"src/runtime/sandboxFrame.ts",
 			"src/runtime/sandboxRunner.ts",
+			"src/runtime/vueBlockHeightPersist.ts",
 			"src/math/Latex.ts",
 		],
 		rules: {

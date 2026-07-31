@@ -170,17 +170,24 @@ export async function expectErrorPanel(
 	if (messagePart == null) {
 		return;
 	}
-	const messages = await browser.$$(".vue-interactive-error-message");
-	const texts: string[] = [];
-	for (const el of messages) {
-		texts.push(await el.getText());
-	}
-	const joined = texts.join("\n");
-	if (typeof messagePart === "string") {
-		expect(joined).toContain(messagePart);
-	} else {
-		expect(joined).toMatch(messagePart);
-	}
+	await browser.waitUntil(
+		async () => {
+			const messages = await browser.$$(".vue-interactive-error-message");
+			const texts: string[] = [];
+			for (const el of messages) {
+				texts.push(await el.getText());
+			}
+			const joined = texts.join("\n");
+			if (typeof messagePart === "string") {
+				return joined.includes(messagePart);
+			}
+			return messagePart.test(joined);
+		},
+		{
+			timeout: 10_000,
+			timeoutMsg: `expected error message matching ${String(messagePart)}`,
+		},
+	);
 }
 
 export interface VueBlockLayoutSnapshot {
