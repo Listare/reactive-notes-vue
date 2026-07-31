@@ -28,8 +28,15 @@ examples/.obsidian/plugins/reactive-notes-vue/styles.css
 examples/.obsidian/workspace.json
 examples/.obsidian/workspace-mobile.json
 
-# Pinia persist dumps written while exercising the demo vault
+test/e2e-vault/.obsidian/plugins/reactive-notes-vue/main.js
+test/e2e-vault/.obsidian/plugins/reactive-notes-vue/manifest.json
+test/e2e-vault/.obsidian/plugins/reactive-notes-vue/styles.css
+test/e2e-vault/.obsidian/workspace.json
+test/e2e-vault/.obsidian/workspace-mobile.json
+
+# Pinia persist dumps written while exercising vaults
 examples/**/pinia-*.json
+test/e2e-vault/**/pinia-*.json
 
 # WDIO / Obsidian launcher cache
 .obsidian-cache

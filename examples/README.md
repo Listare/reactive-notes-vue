@@ -1,6 +1,6 @@
 # Reactive Notes Vue — examples
 
-Demo vault for browsing features locally and for WDIO e2e tests.
+Demo vault for browsing features locally.
 
 ## Open locally
 
@@ -20,5 +20,3 @@ Demo vault for browsing features locally and for WDIO e2e tests.
 | [[mathjax]] | `@vue-interactive/math` |
 | [[pinia]] | Shared store + persist |
 | [[errors]] | Compile and runtime errors |
-
-Automated checks: `pnpm run test:e2e`.

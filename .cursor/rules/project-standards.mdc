@@ -48,7 +48,7 @@ src/
 
 - 对**不依赖** Obsidian、`electron`、真实 vault/网络的模块编写单元测试。
 - 需要 Obsidian `App` / `Plugin` / DOM 集成的代码用薄适配层 + `pnpm run test:e2e`（WDIO）验证，不强行单元测试。
-- 测试文件与源码同目录或放在 `src/**/__tests__/*.test.ts`；命名 `*.test.ts`。单元测试专用 Markdown 放在 `test/fixtures/`；演示库为 `examples/`。
+- 测试文件与源码同目录或放在 `src/**/__tests__/*.test.ts`；命名 `*.test.ts`。单元测试专用 Markdown 放在 `test/fixtures/`；WDIO 库为 `test/e2e-vault/`；演示库为 `examples/`（仅给人浏览，不绑 e2e）。
 - 运行：`pnpm test`；端到端：`pnpm run test:e2e`。新增纯函数/编译管线逻辑时同步补测试。
 
 ```typescript

@@ -38,6 +38,7 @@ export default tseslint.config(
 		"scripts/**",
 		"examples/**",
 		"test/fixtures/**",
+		"test/e2e-vault/**",
 		"e2e/**",
 		"wdio.conf.mts",
 		".obsidian-cache/**",

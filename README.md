@@ -24,9 +24,9 @@ pnpm run build    # 生产构建，并同步到 examples
 
 ### 演示库（examples）与 E2E
 
-仓库内附带 Obsidian 演示库 `examples/`（计数器、导入、错误面板等）。**`pnpm run dev` / `pnpm run build` 完成后会自动把插件复制到** `examples/.obsidian/plugins/reactive-notes-vue/`。
+仓库内附带 Obsidian 演示库 `examples/`（计数器、导入、错误面板等）。**`pnpm run dev` / `pnpm run build` 完成后会自动把插件复制到** `examples/` 与 `test/e2e-vault/` 的插件目录。
 
-自动化回归用 WDIO（[wdio-obsidian-service](https://github.com/jesse-r-s-hines/wdio-obsidian-service)）：
+自动化回归用 WDIO（[wdio-obsidian-service](https://github.com/jesse-r-s-hines/wdio-obsidian-service)），vault 为 `test/e2e-vault/`：
 
 ```bash
 pnpm run build
@@ -191,7 +191,7 @@ URL 中的查询参数会原样保留（例如 `https://esm.sh/vue?target=esnext
 
 `vue-interactive` 沙盒内已内置 [Tailwind CSS v4](https://tailwindcss.com/)，可在 `<template>` 中直接使用工具类（如 `flex`、`p-4`、`dark:bg-slate-800`）。`dark:` 依赖容器上的 `.dark` 类（与 [ReactiveNotes](https://github.com/Prodigist/ReactiveNotes) 相同）。
 
-构建时会扫描 `src/`、`examples/` 与 `test/fixtures/` 中的类名，并对常用工具类做 safelist；笔记里若使用未收录的类名，可能需在 `src/styles/sandbox.css` 中补充 `@source inline(...)` 后重新 `pnpm run build`。
+构建时会扫描 `src/`、`examples/`、`test/fixtures/` 与 `test/e2e-vault/` 中的类名，并对常用工具类做 safelist；笔记里若使用未收录的类名，可能需在 `src/styles/sandbox.css` 中补充 `@source inline(...)` 后重新 `pnpm run build`。
 
 ### 主题：`getTheme()` 与暗色模式
 

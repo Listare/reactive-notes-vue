@@ -1,0 +1,5 @@
+.import-demo-box {
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed var(--background-modifier-border, #888);
+  border-radius: 6px;
+}

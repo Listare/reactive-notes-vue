@@ -24,7 +24,7 @@ export const config: WebdriverIO.Config = {
 			appVersion,
 			installerVersion,
 			plugins: ["."],
-			vault: "examples",
+			vault: "test/e2e-vault",
 		},
 	})),
 	services: ["obsidian"],
