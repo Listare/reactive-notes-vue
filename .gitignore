@@ -22,14 +22,17 @@ coverage
 
 # obsidian
 data.json
-test-vault/.obsidian/plugins/reactive-notes-vue/main.js
-test-vault/.obsidian/plugins/reactive-notes-vue/manifest.json
-test-vault/.obsidian/plugins/reactive-notes-vue/styles.css
-test-vault/.obsidian/workspace.json
-test-vault/.obsidian/workspace-mobile.json
+examples/.obsidian/plugins/reactive-notes-vue/main.js
+examples/.obsidian/plugins/reactive-notes-vue/manifest.json
+examples/.obsidian/plugins/reactive-notes-vue/styles.css
+examples/.obsidian/workspace.json
+examples/.obsidian/workspace-mobile.json
 
 # Pinia persist dumps written while exercising the demo vault
-test-vault/**/pinia-*.json
+examples/**/pinia-*.json
+
+# WDIO / Obsidian launcher cache
+.obsidian-cache
 
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store

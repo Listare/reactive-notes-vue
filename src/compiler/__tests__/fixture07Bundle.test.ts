@@ -12,11 +12,11 @@ import type { ModuleLoader } from "../../bundler/types";
 import { readVaultVueInteractiveFixture } from "../../test/readVueInteractiveFixture";
 
 const FIXTURE_07 = readVaultVueInteractiveFixture(
-	"test-vault/07 - 导入Markdown代码块.md",
+	"test/fixtures/imports/markdown-blocks.md",
 );
 
 const SNIPPETS = readFileSync(
-	join(process.cwd(), "test-vault/shared/snippets.md"),
+	join(process.cwd(), "test/fixtures/shared/snippets.md"),
 	"utf8",
 );
 

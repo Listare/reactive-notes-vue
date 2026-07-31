@@ -9,7 +9,7 @@ import { transpileTypeScript } from "../../bundler/transpile";
 describe("transpile SFC output", () => {
 	it("Chip block runs after transpile (no TS type annotations in output)", async () => {
 		const md = readFileSync(
-			join(process.cwd(), "test-vault/08 - 自引用.md"),
+			join(process.cwd(), "test/fixtures/self-ref.md"),
 			"utf8",
 		);
 		const chip = extractNamedCodeBlock(md, "Chip")!.content;

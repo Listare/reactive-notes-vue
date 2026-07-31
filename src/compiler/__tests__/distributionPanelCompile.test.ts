@@ -14,9 +14,9 @@ const ROOT = process.cwd();
 const readVault = (vaultPath: string) =>
 	readFileSync(join(ROOT, vaultPath.replace(/\\/g, "/")), "utf8");
 
-const PANEL = readVault("test-vault/scripts/DistributionPanel.vue");
-const CHART = readVault("test-vault/scripts/DistributionChart.vue");
-const DISTRIBUTIONS = readVault("test-vault/scripts/distributions.ts");
+const PANEL = readVault("test/fixtures/scripts/DistributionPanel.vue");
+const CHART = readVault("test/fixtures/scripts/DistributionChart.vue");
+const DISTRIBUTIONS = readVault("test/fixtures/scripts/distributions.ts");
 
 function loaderForScripts(): ModuleLoader {
 	return {
@@ -64,7 +64,7 @@ describe("DistributionPanel.vue compile", () => {
 	});
 
 	it("bundled note 16 produces executable module", async () => {
-		const note = readVault("test-vault/16 - 复杂场景-分离.md");
+		const note = readVault("test/fixtures/complex/separated.md");
 		const fence = extractFirstVueInteractiveBlock(note);
 		expect(fence).toBeTruthy();
 
@@ -74,12 +74,12 @@ describe("DistributionPanel.vue compile", () => {
 
 		const bundled = await bundleGraph(
 			{
-				canonicalId: "test-vault/16 - 复杂场景-分离.md#vue-interactive-entry",
-				vaultPath: "test-vault/16 - 复杂场景-分离.md",
+				canonicalId: "test/fixtures/complex/separated.md#vue-interactive-entry",
+				vaultPath: "test/fixtures/complex/separated.md",
 				code: entryCompiled.moduleCode,
 				styles: entryCompiled.styles,
 			},
-			{ fromPath: "test-vault/16 - 复杂场景-分离.md", customScriptPath: "scripts" },
+			{ fromPath: "test/fixtures/complex/separated.md", customScriptPath: "scripts" },
 			loader,
 			imports,
 		);

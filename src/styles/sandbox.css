@@ -34,7 +34,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @source "../../src/**/*.{ts,html}";
-@source "../../test-vault/**/*.{md,vue,html}";
+@source "../../examples/**/*.{md,vue,html}";
+@source "../../test/fixtures/**/*.{md,vue,html}";
 
 /* Common utilities used in notes/examples (vault content is not scanned at build time). */
 @source inline("{hover:,focus:,}bg-{slate,gray,zinc,neutral,stone,red,orange,amber,yellow,lime,green,emerald,teal,cyan,sky,blue,indigo,violet,purple,fuchsia,pink,rose}-{50,{100..900},950}");

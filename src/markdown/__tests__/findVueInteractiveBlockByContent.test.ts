@@ -5,7 +5,7 @@ import { extractNamedCodeBlock } from "../extractNamedCodeBlock";
 import { findVueInteractiveBlockByContent } from "../findVueInteractiveBlockByContent";
 
 const FIXTURE_08 = readFileSync(
-	join(process.cwd(), "test-vault/08 - 自引用.md"),
+	join(process.cwd(), "test/fixtures/self-ref.md"),
 	"utf8",
 );
 

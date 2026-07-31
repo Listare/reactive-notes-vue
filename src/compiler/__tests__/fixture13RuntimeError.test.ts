@@ -9,7 +9,7 @@ import { listVueInteractiveBlocks } from "../../markdown/vueInteractiveFence";
 import { executeModule } from "../../runtime/executeModule";
 
 const FIXTURE_13 = readFileSync(
-	join(process.cwd(), "test-vault/13 - 错误-运行时.md"),
+	join(process.cwd(), "test/fixtures/runtime-error.md"),
 	"utf8",
 );
 const sourcePath = "13 - 错误-运行时.md";

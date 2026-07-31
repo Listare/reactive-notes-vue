@@ -15,8 +15,8 @@ import {
 	readVaultVueInteractiveFixture,
 } from "../../test/readVueInteractiveFixture";
 
-const FIXTURE_08 = readVaultMarkdown("test-vault/08 - 自引用.md");
-const MAIN_BLOCK = readVaultVueInteractiveFixture("test-vault/08 - 自引用.md", {
+const FIXTURE_08 = readVaultMarkdown("test/fixtures/self-ref.md");
+const MAIN_BLOCK = readVaultVueInteractiveFixture("test/fixtures/self-ref.md", {
 	which: "last",
 });
 const sourcePath = "08 - 自引用.md";

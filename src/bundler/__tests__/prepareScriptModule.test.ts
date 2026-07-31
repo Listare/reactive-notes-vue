@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { prepareScriptModule, toTranspilePath } from "../prepareScriptModule";
 
 const SNIPPETS = readFileSync(
-	join(process.cwd(), "test-vault/shared/snippets.md"),
+	join(process.cwd(), "test/fixtures/shared/snippets.md"),
 	"utf8",
 );
 

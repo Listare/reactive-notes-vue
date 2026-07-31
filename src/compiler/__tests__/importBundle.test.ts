@@ -4,9 +4,9 @@ import { collectImportsFromCode } from "../../bundler/collectImports";
 import { transpileTypeScript } from "../../bundler/transpile";
 import { readVaultVueInteractiveFixture } from "../../test/readVueInteractiveFixture";
 
-const FIXTURE_06 = readVaultVueInteractiveFixture("test-vault/06 - 导入示例.md");
+const FIXTURE_06 = readVaultVueInteractiveFixture("test/fixtures/imports/custom-script.md");
 const FIXTURE_07 = readVaultVueInteractiveFixture(
-	"test-vault/07 - 导入Markdown代码块.md",
+	"test/fixtures/imports/markdown-blocks.md",
 );
 
 describe("import bundle fixtures", () => {

@@ -1,24 +1,24 @@
-# MathJax 与 LaTeX 组件
+# MathJax
 
-预期：行内与块级公式随 `latex` 绑定更新；修改输入框内容后公式重新渲染。
+Inline and display formulas update with the bound `latex` strings.
 
 ```vue-interactive
 <template>
   <div class="flex flex-col gap-4 p-4">
     <label class="flex flex-col gap-1 text-sm">
-      行内公式
+      Inline
       <input
         v-model="inlineLatex"
         class="rounded border border-[var(--background-modifier-border)] bg-[var(--background-primary)] px-2 py-1"
       />
     </label>
     <p class="text-base">
-      欧拉恒等式：
+      Euler:
       <Latex :latex="inlineLatex" />
     </p>
 
     <label class="flex flex-col gap-1 text-sm">
-      块级公式
+      Display
       <textarea
         v-model="blockLatex"
         rows="3"

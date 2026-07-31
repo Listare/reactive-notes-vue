@@ -11,27 +11,46 @@
 
 ```bash
 pnpm install
-pnpm run dev      # 监听编译 → main.js，并同步到 test-vault
+pnpm run dev      # 监听编译 → main.js，并同步到 examples
 pnpm test         # 单元测试
+pnpm run test:e2e # WDIO + Obsidian 端到端
 pnpm run test:coverage  # 单元测试 + coverage 阈值（≥85% lines，compiler/bridge/纯决策层）
-pnpm run build    # 生产构建，并同步到 test-vault
+pnpm run build    # 生产构建，并同步到 examples
 ```
 
 将 `main.js`、`manifest.json`、`styles.css` 复制到：
 
 `<Vault>/.obsidian/plugins/reactive-notes-vue/`
 
-### 测试库（test-vault）
+### 演示库（examples）与 E2E
 
-仓库内附带 Obsidian 测试库 `test-vault/`，内含多篇用于手测的笔记（计数器、scoped 样式、错误用例等）。**`pnpm run dev` / `pnpm run build` 完成后会自动把插件复制到** `test-vault/.obsidian/plugins/reactive-notes-vue/`。
+仓库内附带 Obsidian 演示库 `examples/`（计数器、导入、错误面板等）。**`pnpm run dev` / `pnpm run build` 完成后会自动把插件复制到** `examples/.obsidian/plugins/reactive-notes-vue/`。
+
+自动化回归用 WDIO（[wdio-obsidian-service](https://github.com/jesse-r-s-hines/wdio-obsidian-service)）：
+
+```bash
+pnpm run build
+pnpm run test:e2e
+```
+
+首次本地跑 e2e 会下载 Obsidian / chromedriver 到 `.obsidian-cache/`。若直连失败，可临时走代理，例如：
+
+```bash
+# PowerShell
+$env:HTTP_PROXY="http://127.0.0.1:7890"
+$env:HTTPS_PROXY="http://127.0.0.1:7890"
+pnpm exec obsidian-launcher download desktop -v latest -i latest -c .obsidian-cache
+pnpm run test:e2e
+```
+
+本地浏览演示：
 
 1. 执行 `pnpm run dev`
-2. Obsidian → **打开其他库** → 选择本仓库下的 `test-vault`
+2. Obsidian → **打开其他库** → 选择本仓库下的 `examples`
 3. 启用社区插件 **Reactive Notes Vue**（库内已预配置）
-4. 手动调整插件设置
-5. 阅读模式下打开 [[00 - 索引]]，逐篇检查
+4. 按需设置自定义脚本路径 `scripts`、MathJax 前置 `mathjax-preamble.sty`
 
-也可单独同步：`pnpm run sync-vault`（需已存在 `main.js`）。
+也可单独同步：`pnpm run sync-examples`（需已存在 `main.js`）。
 
 ## 用法
 
@@ -172,7 +191,7 @@ URL 中的查询参数会原样保留（例如 `https://esm.sh/vue?target=esnext
 
 `vue-interactive` 沙盒内已内置 [Tailwind CSS v4](https://tailwindcss.com/)，可在 `<template>` 中直接使用工具类（如 `flex`、`p-4`、`dark:bg-slate-800`）。`dark:` 依赖容器上的 `.dark` 类（与 [ReactiveNotes](https://github.com/Prodigist/ReactiveNotes) 相同）。
 
-构建时会扫描 `src/` 与 `test-vault/` 中的类名，并对常用工具类做 safelist；笔记里若使用未收录的类名，可能需在 `src/styles/sandbox.css` 中补充 `@source inline(...)` 后重新 `pnpm run build`。
+构建时会扫描 `src/`、`examples/` 与 `test/fixtures/` 中的类名，并对常用工具类做 safelist；笔记里若使用未收录的类名，可能需在 `src/styles/sandbox.css` 中补充 `@source inline(...)` 后重新 `pnpm run build`。
 
 ### 主题：`getTheme()` 与暗色模式
 
@@ -191,7 +210,7 @@ const theme = computed(() => getTheme());
 - **跟随 Obsidian**（默认）：与 Obsidian 外观同步
 - **亮色** / **暗色**：强制固定
 
-手测用例见 test-vault 中的 [[12 - 主题与 Tailwind]]。
+演示见 examples 中的 [[theme-tailwind]]。
 
 ### MathJax：`Latex` 组件
 
@@ -221,7 +240,7 @@ const integral = ref(String.raw`\int_0^1 x^2\, dx`);
 
 在 **设置 → Reactive Notes Vue → MathJax 前置文件** 可指定库内 TeX 文件（如 `preamble.sty`），渲染前会执行其中的 `\newcommand` 等定义；修改该文件后已打开的 vue-interactive 块会自动刷新。
 
-手测用例见 test-vault 中的 [[14 - MathJax]]。
+演示见 examples 中的 [[mathjax]]。
 
 ## 已知问题
 

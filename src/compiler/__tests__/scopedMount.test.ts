@@ -5,7 +5,7 @@ import { executeModule } from "../../runtime/executeModule";
 import { createApp } from "vue";
 import { readVaultVueInteractiveFixture } from "../../test/readVueInteractiveFixture";
 
-const BLOCK_A = readVaultVueInteractiveFixture("test-vault/02 - 作用域样式.md");
+const BLOCK_A = readVaultVueInteractiveFixture("test/fixtures/scoped-styles.md");
 
 describe("scoped mount", () => {
 	it("applies scoped styles via mount-root rewrite", async () => {

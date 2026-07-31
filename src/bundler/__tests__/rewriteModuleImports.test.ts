@@ -101,7 +101,7 @@ describe("rewriteModuleImports", () => {
 	it("falls back to default for vault named-only imports (Vue block)", () => {
 		const { code } = rewriteModuleImports(
 			`import { DistributionPanel } from './15 - 复杂场景.md?block=panel'\nreturn {}`,
-			"test-vault/15 - 复杂场景.md",
+			"test/fixtures/complex/inline.md",
 			ctx,
 		);
 		expect(code).toMatch(

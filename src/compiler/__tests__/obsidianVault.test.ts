@@ -11,7 +11,7 @@ import { executeModule } from "../../runtime/executeModule";
 import type { ObsidianSandboxModule } from "../../runtime/obsidian/proxyClient";
 
 const VAULT_FIXTURE = readFileSync(
-	join(process.cwd(), "test-vault/11 - Obsidian API.md"),
+	join(process.cwd(), "test/fixtures/obsidian-api.md"),
 	"utf8",
 );
 
@@ -19,7 +19,7 @@ const SFC_SOURCE = listVisibleVueInteractiveBlocks(VAULT_FIXTURE)[0]?.content;
 
 const SOURCE_PATH = "11 - Obsidian API.md";
 
-describe("test-vault/11 - Obsidian API", () => {
+describe("fixtures/obsidian-api", () => {
 	it("fixture contains @obsidian imports", () => {
 		expect(SFC_SOURCE).toBeTruthy();
 		expect(SFC_SOURCE).toContain("from '@obsidian'");
@@ -84,7 +84,7 @@ describe("test-vault/11 - Obsidian API", () => {
 		);
 		const mockApp = {
 			vault: {
-				getName: () => "test-vault",
+				getName: () => "examples",
 			},
 			workspace: {
 				getActiveFile: () => ({ path: SOURCE_PATH }),

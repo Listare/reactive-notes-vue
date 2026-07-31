@@ -36,7 +36,11 @@ export default tseslint.config(
 		"sandbox-runner.js",
 		"sandbox-tailwind.css",
 		"scripts/**",
-		"test-vault/**",
+		"examples/**",
+		"test/fixtures/**",
+		"e2e/**",
+		"wdio.conf.mts",
+		".obsidian-cache/**",
 	]),
 	{
 		files: ["**/*.mjs", "vitest.config.ts"],

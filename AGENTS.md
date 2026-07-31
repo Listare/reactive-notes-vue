@@ -77,10 +77,13 @@ pnpm run lint
 
 ## Testing
 
-- Manual install for testing: copy `main.js`, `manifest.json`, `styles.css` (if any) to:
-  ```
+- Unit tests: `pnpm test` (Vitest). Fixtures live under `test/fixtures/`.
+- E2E: `pnpm run build && pnpm run test:e2e` (WDIO + `wdio-obsidian-service`, vault `examples/`).
+- Manual install for browsing demos: copy `main.js`, `manifest.json`, `styles.css` (if any) to:
+```
   <Vault>/.obsidian/plugins/<plugin-id>/
   ```
+  Or open the repo `examples/` vault after `pnpm run dev` / `pnpm run sync-examples`.
 - Reload Obsidian and enable the plugin in **Settings → Community plugins**.
 
 ## Commands & settings

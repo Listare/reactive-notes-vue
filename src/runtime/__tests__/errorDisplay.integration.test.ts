@@ -11,7 +11,7 @@ import {
 
 describe("error display integration", () => {
 	it("maps setup throw to original SFC line without plugin frames", async () => {
-		const src = readFileSync("./test-vault/errors/03 - setup报错.md", "utf8");
+		const src = readFileSync("./test/fixtures/errors/setup-throw.md", "utf8");
 		const m = /```vue-interactive\r?\n([\s\S]*?)\r?\n```/.exec(src)!;
 		const sfc = m[1]!;
 		const throwSfcLine =

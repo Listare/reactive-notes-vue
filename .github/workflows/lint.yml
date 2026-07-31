@@ -5,6 +5,7 @@ on:
         branches: ["**"]
     pull_request:
         branches: ["**"]
+    workflow_dispatch:
 
 jobs:
     build:
@@ -29,3 +30,57 @@ jobs:
             - run: pnpm run lint
             - run: pnpm test
             - run: pnpm run test:coverage
+
+    e2e:
+        runs-on: ubuntu-latest
+        name: E2E (Obsidian / WDIO)
+        defaults:
+            run:
+                shell: bash
+        steps:
+            - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4
+              with:
+                  version: 9.15.9
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "22.x"
+                  cache: "pnpm"
+            - run: pnpm install --frozen-lockfile
+            - run: pnpm run build
+
+            - name: Get Obsidian cache key
+              run: |
+                  pnpm exec tsx wdio.conf.mts | tee /dev/stderr | grep 'obsidian-cache-key:' > obsidian-versions-lock.txt
+                  rm -rf .obsidian-cache
+              env:
+                  CI: "true"
+                  OBSIDIAN_VERSIONS: "latest/latest"
+
+            - name: Cache Obsidian
+              uses: actions/cache@v4
+              with:
+                  path: .obsidian-cache
+                  key: obsidian-cache-ubuntu-${{ hashFiles('obsidian-versions-lock.txt') }}
+
+            - name: Setup virtual graphics
+              run: |
+                  sudo rm -rf /etc/apt/sources.list.d/*.list || true
+                  echo "set man-db/auto-update false" | sudo debconf-communicate || true
+                  sudo dpkg-reconfigure man-db || true
+                  sudo apt-get update -q
+                  sudo apt-get install -q herbstluftwm dzen2 x11-xserver-utils
+                  export DISPLAY=:99
+                  echo "DISPLAY=$DISPLAY" >> "$GITHUB_ENV"
+                  Xvfb $DISPLAY -screen 0 1280x1024x24 +extension GLX -noreset &
+                  sleep 1
+                  herbstluftwm &
+                  sleep 1
+
+            - name: Run e2e tests
+              run: pnpm run test:e2e
+              env:
+                  DISPLAY: ":99"
+                  WDIO_MAX_INSTANCES: "1"
+                  OBSIDIAN_VERSIONS: "latest/latest"
+                  CI: "true"

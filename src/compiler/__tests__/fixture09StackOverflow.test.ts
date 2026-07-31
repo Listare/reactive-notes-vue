@@ -12,7 +12,7 @@ import { rewriteRuntimeStack } from "../../runtime/stackTrace";
 import type { ModuleLoader } from "../../bundler/types";
 
 const FIXTURE_09 = readFileSync(
-	join(process.cwd(), "test-vault/09 - 错误-递归过深.md"),
+	join(process.cwd(), "test/fixtures/stack-overflow.md"),
 	"utf8",
 );
 const MAIN_BLOCK = FIXTURE_09.match(
