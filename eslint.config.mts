@@ -61,6 +61,7 @@ export default tseslint.config(
 		rules: {
 			"obsidianmd/no-forbidden-elements": "off",
 			"obsidianmd/hardcoded-config-path": "off",
+			"obsidianmd/no-static-styles-assignment": "off",
 			"@typescript-eslint/no-non-null-asserted-optional-chain": "off",
 		},
 	},
