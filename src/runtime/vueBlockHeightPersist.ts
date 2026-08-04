@@ -35,6 +35,22 @@ export function clearHostMinHeight(host: HTMLElement): void {
 }
 
 /**
+ * Applies the measured iframe height and drops the host reserve in one turn.
+ * Callers must not clear minHeight before this — `rendered` resolves before the
+ * first resize, and clearing early collapses the block to ~1px.
+ */
+export function commitMeasuredIframeHeight(
+	host: HTMLElement,
+	iframe: HTMLElement,
+	heightPx: number,
+): void {
+	const h = Math.ceil(heightPx);
+	if (!Number.isFinite(h) || h <= 0) return;
+	iframe.style.height = `${h}px`;
+	clearHostMinHeight(host);
+}
+
+/**
  * Best-effort layout height before tearing down an iframe / collapsing for measure.
  */
 export function resolveLayoutHeightPx(options: {

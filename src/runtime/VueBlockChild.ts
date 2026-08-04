@@ -40,7 +40,6 @@ import { prefetchEsmGraph } from "./esm/prefetchEsmGraph";
 import { resolveUrlDependencies } from "./esm/resolveUrlDependencies";
 import {
 	applyHostMinHeight,
-	clearHostMinHeight,
 	persistBlockHeight,
 	readPersistedBlockHeight,
 	resolveLayoutHeightPx,
@@ -380,7 +379,9 @@ export class VueBlockChild extends MarkdownRenderChild {
 				},
 			);
 			placeholder?.remove();
-			clearHostMinHeight(host);
+			// Keep host minHeight until SandboxFrame applies the first resize.
+			// `vue-sandbox-rendered` resolves before measure; clearing here races
+			// prepare-measure and collapses the block to ~1px (visible jitter).
 			markVueSandboxAlive(this.containerEl);
 		} catch (e) {
 			if (isSandboxAbortedError(e)) {
@@ -441,6 +442,11 @@ export class VueBlockChild extends MarkdownRenderChild {
 		const heightPx = this.captureCurrentHeightPx();
 		if (heightPx > 0) {
 			persistBlockHeight(this.containerEl, heightPx);
+			// Reserve before removing the iframe so a still-connected section
+			// does not collapse between unload and remount.
+			if (this.sandboxHost) {
+				applyHostMinHeight(this.sandboxHost, heightPx);
+			}
 		}
 		clearVueSandboxAlive(this.containerEl);
 		persistVueBlockRemountMetadata(

@@ -21,7 +21,7 @@ import { SandboxAbortedError } from "./sandboxAbort";
 import { isSandboxMountEmpty } from "./vueBlockRemountMetadata";
 import {
 	applyHostMinHeight,
-	clearHostMinHeight,
+	commitMeasuredIframeHeight,
 	resolveLayoutHeightPx,
 } from "./vueBlockHeightPersist";
 
@@ -166,9 +166,12 @@ export class SandboxFrame {
 				return;
 			}
 			if (action.type === "resize") {
-				iframe.style.height = `${action.iframeHeightPx}px`;
+				commitMeasuredIframeHeight(
+					this.container,
+					iframe,
+					action.iframeHeightPx,
+				);
 				this.lastHeightPx = action.iframeHeightPx;
-				clearHostMinHeight(this.container);
 				this.onHeightChange?.(action.iframeHeightPx);
 				return;
 			}

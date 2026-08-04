@@ -332,30 +332,236 @@ export async function snapshotVueBlockLayouts(): Promise<VueBlockLayoutSnapshot[
 	});
 }
 
+const E2E_HOST_HEIGHT_WATCH_KEY = "__e2eVueHostHeightWatch";
+/** Cap ResizeObserver samples so CDP serialization cannot freeze the runner. */
+const E2E_HOST_HEIGHT_WATCH_MAX_SAMPLES = 256;
+
+export interface HostHeightResizeSample {
+	t: number;
+	height: number;
+}
+
+export interface HostHeightResizeWatchResult {
+	baseline: number;
+	samples: HostHeightResizeSample[];
+	minHeight: number;
+	maxHeight: number;
+	/** Largest |height - baseline| across ResizeObserver samples. */
+	maxAbsDeltaFromBaseline: number;
+}
+
+function summarizeHostHeightSamples(
+	baseline: number,
+	samples: HostHeightResizeSample[],
+): HostHeightResizeWatchResult {
+	if (samples.length === 0) {
+		return {
+			baseline,
+			samples,
+			minHeight: 0,
+			maxHeight: 0,
+			maxAbsDeltaFromBaseline: baseline,
+		};
+	}
+	let minHeight = Number.POSITIVE_INFINITY;
+	let maxHeight = 0;
+	let maxAbsDeltaFromBaseline = 0;
+	for (const sample of samples) {
+		minHeight = Math.min(minHeight, sample.height);
+		maxHeight = Math.max(maxHeight, sample.height);
+		maxAbsDeltaFromBaseline = Math.max(
+			maxAbsDeltaFromBaseline,
+			Math.abs(sample.height - baseline),
+		);
+	}
+	return {
+		baseline,
+		samples,
+		minHeight,
+		maxHeight,
+		maxAbsDeltaFromBaseline,
+	};
+}
+
+/** Install ResizeObserver (+ light rebind poll) for a vue-interactive host. */
+export async function startVueBlockHostHeightWatch(
+	blockIndex: number,
+	baseline: number,
+): Promise<void> {
+	await switchToParentFrame();
+	await browser.execute(
+		(idx, base, key, maxSamples) => {
+			const w = window;
+			const prev = w[key];
+			if (prev) {
+				if (prev.ro) prev.ro.disconnect();
+				if (prev.mo) prev.mo.disconnect();
+				if (prev.rebindTimer) clearInterval(prev.rebindTimer);
+			}
+
+			const state = {
+				blockIndex: idx,
+				baseline: base,
+				scrollBackAt: null,
+				samples: [],
+				lastHeight: -1,
+				ro: null,
+				rebindTimer: null,
+				observed: null,
+			};
+
+			const resolveHost = () => {
+				const roots = document.querySelectorAll(".vue-interactive-root");
+				const root = roots[idx];
+				if (!(root instanceof HTMLElement)) return null;
+				const host =
+					root.querySelector(".vue-interactive-sandbox-host") || root;
+				return host instanceof HTMLElement ? host : null;
+			};
+
+			const record = (host) => {
+				const height = host.getBoundingClientRect().height;
+				if (!(height > 0)) return;
+				// Ignore sub-pixel noise; avoid unbounded sample growth.
+				if (Math.abs(height - state.lastHeight) < 1) return;
+				state.lastHeight = height;
+				if (state.samples.length >= maxSamples) {
+					state.samples.shift();
+				}
+				state.samples.push({ t: performance.now(), height: height });
+			};
+
+			const bind = () => {
+				const host = resolveHost();
+				if (!host) {
+					state.observed = null;
+					if (state.ro) {
+						state.ro.disconnect();
+						state.ro = null;
+					}
+					return;
+				}
+				if (host === state.observed) {
+					record(host);
+					return;
+				}
+				if (state.ro) state.ro.disconnect();
+				state.observed = host;
+				state.ro = new ResizeObserver(() => {
+					record(host);
+				});
+				state.ro.observe(host);
+				record(host);
+			};
+
+			// Poll instead of MutationObserver(subtree): preview virtualization
+			// mutates constantly and was freezing the Obsidian UI / WDIO bridge.
+			state.rebindTimer = setInterval(bind, 100);
+			bind();
+			w[key] = state;
+		},
+		blockIndex,
+		baseline,
+		E2E_HOST_HEIGHT_WATCH_KEY,
+		E2E_HOST_HEIGHT_WATCH_MAX_SAMPLES,
+	);
+}
+
+/** Mark the moment scroll-back begins; later samples are remount-sensitive. */
+export async function markVueBlockHostHeightScrollBack(): Promise<void> {
+	await switchToParentFrame();
+	await browser.execute((key) => {
+		const state = window[key];
+		if (!state) {
+			throw new Error("host height ResizeObserver watch is not running");
+		}
+		state.scrollBackAt = performance.now();
+		state.observed = null;
+		state.lastHeight = -1;
+		const roots = document.querySelectorAll(".vue-interactive-root");
+		const root = roots[state.blockIndex];
+		if (!(root instanceof HTMLElement)) return;
+		const host =
+			root.querySelector(".vue-interactive-sandbox-host") || root;
+		if (!(host instanceof HTMLElement)) return;
+		if (state.ro) state.ro.disconnect();
+		state.observed = host;
+		state.ro = new ResizeObserver(() => {
+			const height = host.getBoundingClientRect().height;
+			if (!(height > 0)) return;
+			if (Math.abs(height - state.lastHeight) < 1) return;
+			state.lastHeight = height;
+			if (state.samples.length >= 256) state.samples.shift();
+			state.samples.push({ t: performance.now(), height: height });
+		});
+		state.ro.observe(host);
+		const height = host.getBoundingClientRect().height;
+		if (height > 0) {
+			state.lastHeight = height;
+			state.samples.push({ t: performance.now(), height: height });
+		}
+	}, E2E_HOST_HEIGHT_WATCH_KEY);
+}
+
+/**
+ * Stop the watch and return ResizeObserver samples after scroll-back
+ * (falls back to all samples if scroll-back was never marked).
+ */
+export async function stopVueBlockHostHeightWatch(): Promise<HostHeightResizeWatchResult> {
+	await switchToParentFrame();
+	const raw = await browser.execute((key) => {
+		const state = window[key];
+		if (!state) {
+			throw new Error("host height ResizeObserver watch is not running");
+		}
+		if (state.ro) state.ro.disconnect();
+		if (state.mo) state.mo.disconnect();
+		if (state.rebindTimer) clearInterval(state.rebindTimer);
+		const scrollBackAt = state.scrollBackAt;
+		const samples =
+			scrollBackAt == null
+				? state.samples.slice()
+				: state.samples.filter((s) => s.t >= scrollBackAt);
+		delete window[key];
+		return {
+			baseline: state.baseline,
+			samples: samples,
+		};
+	}, E2E_HOST_HEIGHT_WATCH_KEY);
+
+	return summarizeHostHeightSamples(raw.baseline, raw.samples);
+}
+
 /**
  * Scroll the first block out of view, wait for unload to settle, then scroll
- * back while sampling host heights.
+ * back while a ResizeObserver records host height (no polling).
  */
 export async function sampleHostHeightDuringScrollRemount(options: {
 	blockIndex?: number;
+	/** Expected sandbox iframes after scroll-back remount. */
+	sandboxCount?: number;
+	/** Spacer height injected between / after blocks. */
+	spacerHeightPx?: number;
+	/** Extra settle time after sandboxes remount while ResizeObserver is still on. */
 	sampleMs?: number;
-	sampleIntervalMs?: number;
 	/** Time to stay scrolled away so virtualization can finish unload. */
 	awayMs?: number;
 }): Promise<{
 	before: VueBlockLayoutSnapshot;
-	minHostHeightAfterScrollBack: number;
+	/** ResizeObserver samples from scroll-back through remount settle. */
+	resizeWatch: HostHeightResizeWatchResult;
 	after: VueBlockLayoutSnapshot[];
 	sawUnloadShell: boolean;
 }> {
 	const blockIndex = options.blockIndex ?? 0;
-	const sampleMs = options.sampleMs ?? 5_000;
-	const sampleIntervalMs = options.sampleIntervalMs ?? 50;
+	const sandboxCount = options.sandboxCount ?? 3;
+	const spacerHeightPx = options.spacerHeightPx ?? 1100;
+	const sampleMs = options.sampleMs ?? 2_000;
 	const awayMs = options.awayMs ?? 1_500;
 
-	await waitForSandboxCount(blockIndex + 1);
+	await waitForSandboxCount(Math.max(blockIndex + 1, sandboxCount));
 	await browser.pause(500);
-	await ensureScrollSpacersBetweenBlocks(1100);
+	await ensureScrollSpacersBetweenBlocks(spacerHeightPx);
 	const beforeAll = await snapshotVueBlockLayouts();
 	const before = beforeAll[blockIndex];
 	if (!before || before.hostHeight < 100) {
@@ -363,6 +569,8 @@ export async function sampleHostHeightDuringScrollRemount(options: {
 			`block ${blockIndex} not ready before scroll (height=${before?.hostHeight ?? 0})`,
 		);
 	}
+
+	await startVueBlockHostHeightWatch(blockIndex, before.hostHeight);
 
 	await scrollMarkdownPreview("bottom");
 
@@ -401,40 +609,282 @@ export async function sampleHostHeightDuringScrollRemount(options: {
 	// Let MarkdownRenderChild.onunload + shell restore finish before scrolling back.
 	await browser.pause(awayMs);
 
+	await markVueBlockHostHeightScrollBack();
 	await scrollMarkdownPreview("top");
+	await waitForSandboxCount(sandboxCount, 45_000);
 
-	let minHostHeightAfterScrollBack = Number.POSITIVE_INFINITY;
-	const deadline = Date.now() + sampleMs;
-	while (Date.now() < deadline) {
-		const height = await browser.execute((idx) => {
-			const roots = document.querySelectorAll(".vue-interactive-root");
-			const root = roots[idx];
-			if (!(root instanceof HTMLElement)) return 0;
-			const host =
-				root.querySelector(".vue-interactive-sandbox-host") ?? root;
-			if (!(host instanceof HTMLElement)) return 0;
-			return host.getBoundingClientRect().height;
-		}, blockIndex);
-		if (height > 0) {
-			minHostHeightAfterScrollBack = Math.min(
-				minHostHeightAfterScrollBack,
-				height,
+	// Wait until the target block is a live mount with real layout — not an
+	// empty host mid-remount (height 0) or a loading shell.
+	await browser.waitUntil(
+		async () => {
+			const snaps = await snapshotVueBlockLayouts();
+			const block = snaps[blockIndex];
+			return (
+				!!block &&
+				block.hasIframe &&
+				!block.hasPlaceholder &&
+				block.hostHeight > 100
 			);
-		}
-		await browser.pause(sampleIntervalMs);
-	}
-	if (!Number.isFinite(minHostHeightAfterScrollBack)) {
-		minHostHeightAfterScrollBack = 0;
-	}
+		},
+		{
+			timeout: 45_000,
+			timeoutMsg: `expected block ${blockIndex} live host height > 100 after scroll-back`,
+		},
+	);
+	await browser.pause(sampleMs);
 
-	await waitForSandboxCount(3, 45_000);
-	await browser.pause(300);
-	const after = await snapshotVueBlockLayouts();
+	const resizeWatch = await stopVueBlockHostHeightWatch();
+
+	// Re-check live layout when capturing `after` so we do not race an empty().
+	let after: VueBlockLayoutSnapshot[] = [];
+	await browser.waitUntil(
+		async () => {
+			after = await snapshotVueBlockLayouts();
+			const block = after[blockIndex];
+			return (
+				!!block &&
+				block.hasIframe &&
+				!block.hasPlaceholder &&
+				block.hostHeight > 100
+			);
+		},
+		{
+			timeout: 15_000,
+			timeoutMsg: `expected block ${blockIndex} live after snapshot`,
+		},
+	);
 
 	return {
 		before,
-		minHostHeightAfterScrollBack,
+		resizeWatch,
 		after,
 		sawUnloadShell,
+	};
+}
+
+/** Read text content of a selector inside sandbox iframe `index`. */
+export async function readSandboxText(
+	selector: string,
+	index = 0,
+): Promise<string | null> {
+	await switchToParentFrame();
+	return browser.execute(
+		(sel, i) => {
+			const iframe = document.querySelectorAll(
+				"iframe.vue-interactive-sandbox",
+			)[i];
+			if (!(iframe instanceof HTMLIFrameElement) || !iframe.contentDocument) {
+				return null;
+			}
+			const el = iframe.contentDocument.querySelector(sel);
+			return el?.textContent ?? null;
+		},
+		selector,
+		index,
+	);
+}
+
+/** Wait until a sandbox element’s textContent equals `text`. */
+export async function waitForSandboxText(
+	selector: string,
+	text: string,
+	index = 0,
+	timeout = 45_000,
+): Promise<void> {
+	let last: string | null = null;
+	const deadline = Date.now() + timeout;
+	while (Date.now() < deadline) {
+		last = await readSandboxText(selector, index);
+		if (last === text) return;
+		await browser.pause(200);
+	}
+	throw new Error(
+		`expected sandbox ${index} ${selector} text "${text}" (last=${JSON.stringify(last)})`,
+	);
+}
+
+/**
+ * Simulate reading-view virtualization unload: drop the iframe, keep
+ * `data-vue-last-height` + host minHeight so remount can reserve space.
+ * Returns the reserved height in CSS pixels.
+ */
+export async function forceVueBlockUnloadShell(
+	blockIndex = 0,
+): Promise<number> {
+	await switchToParentFrame();
+	return browser.execute((idx) => {
+		const roots = document.querySelectorAll(".vue-interactive-root");
+		const root = roots[idx];
+		if (!(root instanceof HTMLElement)) {
+			throw new Error(`vue-interactive root ${idx} missing`);
+		}
+		const host =
+			root.querySelector(".vue-interactive-sandbox-host") ?? root;
+		if (!(host instanceof HTMLElement)) {
+			throw new Error("sandbox host missing");
+		}
+		const iframe = root.querySelector("iframe.vue-interactive-sandbox");
+		let height = host.getBoundingClientRect().height;
+		if (
+			(!(height > 0) || !Number.isFinite(height)) &&
+			iframe instanceof HTMLElement
+		) {
+			height = iframe.getBoundingClientRect().height;
+		}
+		const h = Math.ceil(height);
+		if (!(h > 0)) {
+			throw new Error(`cannot reserve unload height (got ${height})`);
+		}
+		root.setAttribute("data-vue-last-height", String(h));
+		host.style.minHeight = `${h}px`;
+		iframe?.remove();
+		host.replaceChildren();
+		return h;
+	}, blockIndex);
+}
+
+/** Fire preview scroll so the plugin’s remount scanner picks up stale blocks. */
+export async function triggerVueBlockRemountScan(): Promise<void> {
+	await switchToParentFrame();
+	await browser.execute(() => {
+		const el = document.querySelector(".markdown-preview-view");
+		if (!(el instanceof HTMLElement)) {
+			throw new Error("markdown preview scroller missing");
+		}
+		el.dispatchEvent(new Event("scroll", { bubbles: true }));
+	});
+	// Reading remount is debounced (~80ms).
+	await browser.pause(150);
+	await browser.execute(() => {
+		const el = document.querySelector(".markdown-preview-view");
+		if (el instanceof HTMLElement) {
+			el.dispatchEvent(new Event("scroll", { bubbles: true }));
+		}
+	});
+}
+
+/** Wait until a vue-interactive host reaches at least `minHeightPx`. */
+export async function waitForVueBlockHostHeight(
+	blockIndex: number,
+	minHeightPx: number,
+	timeout = 15_000,
+): Promise<VueBlockLayoutSnapshot> {
+	let last: VueBlockLayoutSnapshot | undefined;
+	await browser.waitUntil(
+		async () => {
+			const snaps = await snapshotVueBlockLayouts();
+			last = snaps[blockIndex];
+			return !!last && last.hostHeight >= minHeightPx;
+		},
+		{
+			timeout,
+			timeoutMsg: `expected block ${blockIndex} host height >= ${minHeightPx} (last=${last?.hostHeight ?? 0})`,
+		},
+	);
+	if (!last) {
+		throw new Error(`block ${blockIndex} missing after height wait`);
+	}
+	return last;
+}
+
+/** Wait until host height is within `tolerancePx` of `targetPx`. */
+export async function waitForVueBlockHostHeightNear(
+	blockIndex: number,
+	targetPx: number,
+	tolerancePx = 120,
+	timeout = 20_000,
+): Promise<VueBlockLayoutSnapshot> {
+	let last: VueBlockLayoutSnapshot | undefined;
+	let lastCount = 0;
+	await browser.waitUntil(
+		async () => {
+			const snaps = await snapshotVueBlockLayouts();
+			lastCount = snaps.length;
+			last = snaps[blockIndex];
+			return (
+				!!last &&
+				last.hasIframe &&
+				!last.hasPlaceholder &&
+				last.hostHeight > 0 &&
+				Math.abs(last.hostHeight - targetPx) <= tolerancePx
+			);
+		},
+		{
+			timeout,
+			timeoutMsg: `expected block ${blockIndex} host height near ${targetPx}±${tolerancePx} (blocks=${lastCount}, last=${
+				last
+					? `h=${last.hostHeight}, iframe=${last.hasIframe}, ph=${last.hasPlaceholder}, min=${last.hostMinHeight}, attr=${last.lastHeightAttr}`
+					: "missing"
+			})`,
+		},
+	);
+	if (!last) {
+		throw new Error(`block ${blockIndex} missing after near-height wait`);
+	}
+	return last;
+}
+
+/** Wait until host height falls to at most `maxHeightPx` (e.g. after state reset). */
+export async function waitForVueBlockHostHeightAtMost(
+	blockIndex: number,
+	maxHeightPx: number,
+	timeout = 20_000,
+): Promise<VueBlockLayoutSnapshot> {
+	let last: VueBlockLayoutSnapshot | undefined;
+	await browser.waitUntil(
+		async () => {
+			const snaps = await snapshotVueBlockLayouts();
+			last = snaps[blockIndex];
+			return (
+				!!last &&
+				last.hasIframe &&
+				!last.hasPlaceholder &&
+				last.hostHeight > 0 &&
+				last.hostHeight <= maxHeightPx
+			);
+		},
+		{
+			timeout,
+			timeoutMsg: `expected block ${blockIndex} host height <= ${maxHeightPx} (last=${last?.hostHeight ?? 0})`,
+		},
+	);
+	if (!last) {
+		throw new Error(`block ${blockIndex} missing after max-height wait`);
+	}
+	return last;
+}
+
+/**
+ * Split ResizeObserver samples into the reserved/expanded hold prefix and the
+ * post-reset settled suffix (first sample at/below the midpoint).
+ */
+export function splitExpandRemountHeightPhases(options: {
+	initialHeight: number;
+	expandedHeight: number;
+	samples: HostHeightResizeSample[];
+}): {
+	holdSamples: HostHeightResizeSample[];
+	settledSamples: HostHeightResizeSample[];
+	hold: HostHeightResizeWatchResult;
+	settled: HostHeightResizeWatchResult;
+} {
+	const mid = (options.initialHeight + options.expandedHeight) / 2;
+	const samples = options.samples;
+	let firstSettle = -1;
+	for (let i = 0; i < samples.length; i++) {
+		const sample = samples[i];
+		if (sample && sample.height <= mid) {
+			firstSettle = i;
+			break;
+		}
+	}
+	const holdSamples =
+		firstSettle < 0 ? samples.slice() : samples.slice(0, firstSettle);
+	const settledSamples = firstSettle < 0 ? [] : samples.slice(firstSettle);
+	return {
+		holdSamples,
+		settledSamples,
+		hold: summarizeHostHeightSamples(options.expandedHeight, holdSamples),
+		settled: summarizeHostHeightSamples(options.initialHeight, settledSamples),
 	};
 }
