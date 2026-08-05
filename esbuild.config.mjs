@@ -76,6 +76,14 @@ const defineEnv = {
 	__VUE_PROD_HYDRATION_MISMATCH_DETAILS__: "false",
 };
 
+/** Sandbox iframe has no Node globals; mathjax-full's loader expects them. */
+const sandboxDefineEnv = {
+	...defineEnv,
+	global: "globalThis",
+	__dirname: '""',
+	__filename: '""',
+};
+
 let sandboxRunnerCode = "";
 let sandboxTailwindCss = "";
 
@@ -171,7 +179,7 @@ const runnerContext = await esbuild.context({
 	treeShaking: true,
 	outfile: SANDBOX_RUNNER_OUT,
 	minify: prod,
-	define: defineEnv,
+	define: sandboxDefineEnv,
 	plugins: [
 		vueFromParentPlugin(),
 		{

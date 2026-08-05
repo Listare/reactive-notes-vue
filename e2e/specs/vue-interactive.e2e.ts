@@ -153,6 +153,35 @@ describe("vue-interactive e2e", function () {
 			}
 		});
 
+		it("supports Obsidian-aligned MathJax packages (require / physics / mhchem)", async function () {
+			await obsidianPage.openFile("mathjax-packages.md");
+			await switchToSandboxFrame(0);
+
+			for (const sel of [
+				".mjx-require-cancel",
+				".mjx-require-physics",
+				".mjx-mhchem",
+			]) {
+				const host = browser.$(sel);
+				await host.waitForExist({ timeout: 30_000 });
+				await browser.waitUntil(
+					async () => {
+						const html = await host.getHTML(false);
+						return (
+							html.includes("<svg") &&
+							!/data-mjx-error|Undefined control sequence/i.test(html)
+						);
+					},
+					{
+						timeout: 30_000,
+						timeoutMsg: `expected ${sel} to render MathJax SVG without error`,
+					},
+				);
+			}
+
+			await switchToParentFrame();
+		});
+
 		it("shares Pinia state across blocks", async function () {
 			await obsidianPage.openFile("pinia.md");
 			await switchToSandboxFrame(0);

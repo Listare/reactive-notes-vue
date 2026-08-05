@@ -214,7 +214,9 @@ const theme = computed(() => getTheme());
 
 ### MathJax：`Latex` 组件
 
-从内置模块导入 **`Latex`**，绑定 `latex` 字符串即可渲染（MathJax 3，沙盒内打包，无需联网）：
+从内置模块导入 **`Latex`**，绑定 `latex` 字符串即可渲染（MathJax 3，沙盒内独立打包，无需联网）。
+
+引擎配置对齐 Obsidian 内置 MathJax（[高级排版 → Math](https://help.obsidian.md/Editing+and+formatting/Advanced+formatting+syntax#Math) / MathJax [`input/tex` 扩展](https://docs.mathjax.org/en/v3.2/input/tex/extensions.html)）：默认包含 `\require`、`autoload`、AMS 等，并启用 Safe；扩展包离线预加载，可在公式中写 `\require{physics}` 等。
 
 ```ts
 import { Latex } from "@vue-interactive/math";

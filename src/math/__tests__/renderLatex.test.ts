@@ -39,6 +39,33 @@ describe("renderLatexToHtml", () => {
 		expect(withPreamble).not.toEqual(without);
 	});
 
+	it("supports \\require like Obsidian MathJax", async () => {
+		await prepareMathJax("");
+		const html = renderLatexToHtml(
+			String.raw`\require{cancel}\cancel{x}`,
+			false,
+		);
+		expect(html).toContain("<svg");
+		expect(html).not.toMatch(/data-mjx-error|Undefined control sequence/i);
+	});
+
+	it("loads physics via \\require", async () => {
+		await prepareMathJax("");
+		const html = renderLatexToHtml(
+			String.raw`\require{physics}\ket{\psi}`,
+			false,
+		);
+		expect(html).toContain("<svg");
+		expect(html).not.toMatch(/data-mjx-error|Undefined control sequence/i);
+	});
+
+	it("renders mhchem \\ce without explicit require", async () => {
+		await prepareMathJax("");
+		const html = renderLatexToHtml(String.raw`\ce{H2O}`, false);
+		expect(html).toContain("<svg");
+		expect(html).not.toMatch(/data-mjx-error|Undefined control sequence/i);
+	});
+
 	it("renders ams cases environment", async () => {
 		await prepareMathJax("");
 		const html = renderLatexToHtml(
