@@ -7,51 +7,6 @@
 - Obsidian 1.4.0+
 - 桌面端（`isDesktopOnly: true`，因打包体积含 Vue 与 compiler-sfc）
 
-## 开发
-
-```bash
-pnpm install
-pnpm run dev      # 监听编译 → main.js，并同步到 examples
-pnpm test         # 单元测试
-pnpm run test:e2e # WDIO + Obsidian 端到端
-pnpm run test:coverage  # 单元测试 + coverage 阈值（≥85% lines，compiler/bridge/纯决策层）
-pnpm run build    # 生产构建，并同步到 examples
-```
-
-将 `main.js`、`manifest.json`、`styles.css` 复制到：
-
-`<Vault>/.obsidian/plugins/reactive-notes-vue/`
-
-### 演示库（examples）与 E2E
-
-仓库内附带 Obsidian 演示库 `examples/`（计数器、导入、错误面板等）。**`pnpm run dev` / `pnpm run build` 完成后会自动把插件复制到** `examples/` 与 `test/e2e-vault/` 的插件目录。
-
-自动化回归用 WDIO（[wdio-obsidian-service](https://github.com/jesse-r-s-hines/wdio-obsidian-service)），vault 为 `test/e2e-vault/`：
-
-```bash
-pnpm run build
-pnpm run test:e2e
-```
-
-首次本地跑 e2e 会下载 Obsidian / chromedriver 到 `.obsidian-cache/`。若直连失败，可临时走代理，例如：
-
-```bash
-# PowerShell
-$env:HTTP_PROXY="http://127.0.0.1:7890"
-$env:HTTPS_PROXY="http://127.0.0.1:7890"
-pnpm exec obsidian-launcher download desktop -v latest -i latest -c .obsidian-cache
-pnpm run test:e2e
-```
-
-本地浏览演示：
-
-1. 执行 `pnpm run dev`
-2. Obsidian → **打开其他库** → 选择本仓库下的 `examples`
-3. 启用社区插件 **Reactive Notes Vue**（库内已预配置）
-4. 按需设置自定义脚本路径 `scripts`、MathJax 前置 `mathjax-preamble.sty`
-
-也可单独同步：`pnpm run sync-examples`（需已存在 `main.js`）。
-
 ## 用法
 
 ````markdown
@@ -76,7 +31,28 @@ button {
 
 - 必须包含 `<template>` 与 `<script setup>`；若未写 `lang`，会自动补上 `lang="ts"`。
 - 围栏可选属性（写在语言标识后）：`{name=名称}` 供 `?block=` 导入；`{hide=true}` 时阅读模式不渲染（仅作模块导出）。可组合，例如 ` ```vue-interactive {name=Chip, hide=true}`。
-- 支持从库内文件或 HTTPS URL 导入（见下方）；`vue`、Obsidian API（`@obsidian`）、主题（`@vue-interactive/theme`）、MathJax（`@vue-interactive/math`）与 Node 内置模块（仅 `node:` 前缀）由插件内置，其余 npm 包可通过 ESM CDN URL 引入。
+- 支持从库内文件或 HTTPS URL 导入（见下方）；`vue`、`pinia`、Obsidian API（`@obsidian`）、主题（`@vue-interactive/theme`）、MathJax（`@vue-interactive/math`）与 Node 内置模块（仅 `node:` 前缀）由插件内置，其余 npm 包可通过 ESM CDN URL 引入。
+
+### 命令与设置
+
+命令面板中可用：
+
+| 命令 | 作用 |
+|------|------|
+| **刷新当前笔记中的 vue-interactive 块** | 按当前笔记内容重新编译并挂载本页可见块 |
+| **清除所有交互状态** | 销毁内存中的 Pinia store 并重新挂载；已 `persist` 的 JSON 文件会保留并重新 hydrate |
+
+在 **设置 → Reactive Notes Vue** 可配置：
+
+| 设置项 | 说明 |
+|--------|------|
+| **暗色模式** | 跟随 Obsidian / 强制亮色 / 强制暗色 |
+| **自定义脚本路径** | `@custom-script/` 导入根目录（如 `scripts`） |
+| **MathJax 前置文件** | 库内 TeX 前置（如 `preamble.sty`） |
+| **允许扩展 Node 内置模块** | 开放 `node:fs` 等（默认仅安全子集） |
+| **启用磁盘缓存** | 将编译结果与 ESM CDN 模块缓存到库内文件夹，重启后可跳过重复编译与下载（默认关闭） |
+| **磁盘缓存路径** | 库内文件夹（默认 `.cache`）；实际写入其下的 `reactive-notes-vue/` 子目录 |
+| **清除磁盘缓存** | 清空内存缓存并删除上述插件缓存文件夹 |
 
 ### Pinia（全局共享）
 
@@ -147,7 +123,7 @@ const req = await http.get("http://example.com");
 
 | 默认可用（安全子集） | 需在设置中开启「允许扩展 Node 内置模块」 |
 |----------------------|------------------------------------------|
-| `node:path`、`node:url`、`node:querystring`、`node:buffer`、`node:util`、`node:events`、`node:assert`、`node:string_decoder`、`node:timers`、`node:timers/promises`、`node:constants`、`node:punycode` 等 | `node:fs`、`node:fs/promises`、`node:os`、`node:crypto`、`node:child_process` 等其余 builtin |
+| `node:path`、`node:path/posix`、`node:path/win32`、`node:url`、`node:querystring`、`node:buffer`、`node:util`、`node:events`、`node:assert`、`node:string_decoder`、`node:timers`、`node:timers/promises`、`node:constants`、`node:punycode` | `node:fs`、`node:fs/promises`、`node:os`、`node:crypto`、`node:child_process` 等其余 builtin |
 
 - 仅认 `node:`：`import { join } from 'node:path'`。
 - 同步风格的 Node API（如 `fs.readFileSync`）在沙盒中仍会变成异步 RPC；优先使用 `node:fs/promises`。
@@ -244,17 +220,59 @@ const integral = ref(String.raw`\int_0^1 x^2\, dx`);
 
 演示见 examples 中的 [[mathjax]]。
 
+## 开发
+
+```bash
+pnpm install
+pnpm run dev      # 监听编译 → main.js，并同步到 examples / e2e-vault
+pnpm run lint     # ESLint
+pnpm test         # 单元测试
+pnpm run test:e2e # WDIO + Obsidian 端到端
+pnpm run test:coverage  # 单元测试 + coverage 阈值（lines/functions/statements ≥85%，branches ≥80%；compiler/bridge/纯决策层）
+pnpm run build    # 生产构建，并同步到 examples / e2e-vault
+```
+
+将 `main.js`、`manifest.json`、`styles.css` 复制到：
+
+`<Vault>/.obsidian/plugins/reactive-notes-vue/`
+
+### 演示库（examples）与 E2E
+
+仓库内附带 Obsidian 演示库 `examples/`（计数器、导入、Pinia、主题、MathJax、错误面板等）。**`pnpm run dev` / `pnpm run build` 完成后会自动把插件复制到** `examples/` 与 `test/e2e-vault/` 的插件目录。
+
+自动化回归用 WDIO（[wdio-obsidian-service](https://github.com/jesse-r-s-hines/wdio-obsidian-service)），vault 为 `test/e2e-vault/`：
+
+```bash
+pnpm run build
+pnpm run test:e2e
+```
+
+首次本地跑 e2e 会下载 Obsidian / chromedriver 到 `.obsidian-cache/`。若直连失败，可先配置本机 HTTP(S) 代理环境变量后再执行 `pnpm exec obsidian-launcher download …` / `pnpm run test:e2e`。
+
+本地浏览演示：
+
+1. 执行 `pnpm run dev`
+2. Obsidian → **打开其他库** → 选择本仓库下的 `examples`
+3. 启用社区插件 **Reactive Notes Vue**（库内已预配置）
+4. 按需设置自定义脚本路径 `scripts`、MathJax 前置 `mathjax-preamble.sty`
+
+也可单独同步：`pnpm run sync-examples`（需已存在 `main.js`；同时同步 examples 与 e2e-vault）。
+
 ## 已知问题
 
-- **滚动后状态丢失**：阅读模式下，将 `vue-interactive` 块滚出视口再滚回时，组件会重新挂载，**响应式状态（如 `ref` 计数）会重置**。这是 Obsidian 阅读视图虚拟化与当前沙盒生命周期下的预期行为，**短期内不计划修复**。若需要持久状态，请自行写入 `localStorage`、插件数据或库内文件。
+- **滚动后状态丢失**：阅读模式下，将 `vue-interactive` 块滚出视口再滚回时，组件会重新挂载，**块内局部响应式状态（如 `ref` 计数）会重置**。这是 Obsidian 阅读视图虚拟化与当前沙盒生命周期下的预期行为，**短期内不计划修复**。需要跨挂载保留状态时，优先用内置 Pinia 的 `persist` 写库内 JSON；也可自行写入 `localStorage` 或其它库内文件。
 
 ## 架构
 
 | 目录 | 职责 |
 |------|------|
-| `src/compiler/` | SFC 规范化、compiler-sfc 编译、模块拼接 |
-| `src/runtime/` | 沙盒 iframe 内执行模块并挂载 Vue |
-| `src/processor/` | `registerMarkdownCodeBlockProcessor` |
-| `src/ui/` | 错误展示（纯 DOM） |
+| `src/compiler/` | SFC 规范化、compiler-sfc 编译、内置 import 改写 |
+| `src/bundler/` | 库内依赖图收集、转译与模块拼接 |
+| `src/runtime/` | 沙盒 iframe、桥接（Obsidian / Node）、挂载与高度/重挂载 |
+| `src/processor/` | `registerMarkdownCodeBlockProcessor`、vault 监听与重挂载调度 |
+| `src/cache/` | 编译与 ESM 的内存 / 可选磁盘缓存 |
+| `src/vault/` / `src/resolver/` / `src/markdown/` | 库文件读取、路径解析、围栏与命名代码块 |
+| `src/builtin/` / `src/theme/` / `src/math/` | 内置模块判定、主题同步、MathJax |
+| `src/settings/` / `src/commands/` / `src/ui/` | 设置规范化、命令、设置页与错误展示 |
 
-参考实现（React 版）见 [ReactiveNotes](https://github.com/Prodigist/ReactiveNotes)，本仓库刻意保持精简。
+参考实现（React 版）见 [ReactiveNotes](https://github.com/Prodigist/ReactiveNotes)。
