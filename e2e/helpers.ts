@@ -10,9 +10,6 @@ export async function applyE2ePluginSettings(): Promise<void> {
 	});
 }
 
-/** @deprecated Use applyE2ePluginSettings */
-export const applyExamplePluginSettings = applyE2ePluginSettings;
-
 export async function switchToParentFrame(): Promise<void> {
 	await browser.switchFrame(null);
 }

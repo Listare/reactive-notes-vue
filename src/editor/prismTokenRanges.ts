@@ -72,18 +72,6 @@ function collectTypes(token: PrismTokenNode): string[] {
 	return types;
 }
 
-function contentLength(content: string | Array<string | PrismTokenNode>): number {
-	if (typeof content === "string") return content.length;
-	let len = 0;
-	for (const child of content) {
-		len +=
-			typeof child === "string"
-				? child.length
-				: contentLength(child.content);
-	}
-	return len;
-}
-
 /**
  * Flattens Prism.tokenize output into leaf ranges with CM class names.
  * Nested tokens keep the nearest enclosing type for string leaves.
@@ -146,11 +134,4 @@ export function tokenRangesForCode(
 	if (!code || grammar == null) return [];
 	const tokens = tokenize(code, grammar);
 	return flattenPrismTokensToRanges(tokens);
-}
-
-/** Exported for tests that assert length helpers stay consistent. */
-export function prismContentLength(
-	content: string | Array<string | PrismTokenNode>,
-): number {
-	return contentLength(content);
 }

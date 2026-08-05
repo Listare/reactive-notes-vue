@@ -7,7 +7,7 @@ import {
 import type { PrismLike } from "./prismHost";
 import {
 	filterFenceRangesInViewport,
-	findVueInteractiveFenceRanges,
+	type VueInteractiveFenceRange,
 } from "./findVueInteractiveFenceRanges";
 import {
 	tokenRangesForCode,
@@ -19,25 +19,28 @@ function resolveVueGrammar(prism: PrismLike): unknown {
 	return languages.vue ?? languages.markup ?? languages.html ?? null;
 }
 
-/** Builds CM decorations for vue-interactive fences intersecting the viewport. */
+/**
+ * Builds CM decorations for vue-interactive fences intersecting the viewport.
+ * Pass `fences` from a doc-change cache so viewport updates skip full-doc scans.
+ */
 export function buildVueInteractiveDecorations(
 	view: EditorView,
 	prism: PrismLike | null,
+	fences: readonly VueInteractiveFenceRange[],
 ): DecorationSet {
 	if (!prism) return Decoration.none;
 
 	const grammar = resolveVueGrammar(prism);
 	if (grammar == null) return Decoration.none;
 
-	const doc = view.state.doc.toString();
-	const fences = filterFenceRangesInViewport(
-		findVueInteractiveFenceRanges(doc),
+	const inViewport = filterFenceRangesInViewport(
+		fences,
 		view.viewport.from,
 		view.viewport.to,
 	);
 
 	const builder: Range<Decoration>[] = [];
-	for (const fence of fences) {
+	for (const fence of inViewport) {
 		const relative = tokenRangesForCode(
 			fence.text,
 			(text, g) =>
