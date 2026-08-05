@@ -18,6 +18,212 @@ export async function switchToParentFrame(): Promise<void> {
 }
 
 /**
+ * Switch the active markdown leaf between reading (`preview`) and editor
+ * (`source`). When `sourceMode` is true, use classic source mode (not Live Preview).
+ *
+ * Returns the view state after the switch so callers can assert the mode stuck.
+ */
+export async function switchActiveMarkdownMode(
+	mode: "source" | "preview",
+	sourceMode = true,
+): Promise<{ mode: string; source: boolean | undefined }> {
+	await switchToParentFrame();
+	const state = await browser.executeObsidian(
+		async ({ app, obsidian }, nextMode, useSource) => {
+			const view = app.workspace.getActiveViewOfType(obsidian.MarkdownView);
+			if (!view) {
+				throw new Error("active MarkdownView missing");
+			}
+			const leaf = app.workspace.getMostRecentLeaf();
+			if (!leaf) {
+				throw new Error("active workspace leaf missing");
+			}
+			const viewState = leaf.getViewState();
+			const prev = (viewState.state ?? {}) as Record<string, unknown>;
+			await leaf.setViewState({
+				...viewState,
+				state: {
+					...prev,
+					mode: nextMode,
+					...(nextMode === "source" ? { source: useSource } : {}),
+				},
+			});
+			// Focus editor so CM6 decorations attach to the visible source view.
+			if (nextMode === "source") {
+				view.editor?.focus();
+			}
+			const after = view.getState() as { mode?: string; source?: boolean };
+			return {
+				mode: String(after.mode ?? ""),
+				source: after.source,
+			};
+		},
+		mode,
+		sourceMode,
+	);
+
+	if (mode === "source") {
+		await browser.waitUntil(
+			async () => {
+				return browser.execute((wantSource) => {
+					const sourceView = document.querySelector(
+						".markdown-source-view.mod-cm6",
+					);
+					if (!(sourceView instanceof HTMLElement)) return false;
+					const isLive = sourceView.classList.contains("is-live-preview");
+					const hasContent = Boolean(
+						sourceView.querySelector(".cm-content"),
+					);
+					return hasContent && isLive !== wantSource;
+				}, sourceMode);
+			},
+			{
+				timeout: 15_000,
+				timeoutMsg: `expected markdown ${sourceMode ? "source" : "live-preview"} view DOM`,
+			},
+		);
+	} else {
+		await browser.$(".markdown-preview-view").waitForExist({ timeout: 15_000 });
+	}
+
+	return state;
+}
+
+/** Read active MarkdownView mode (`preview` / `source` + live-preview flag). */
+export async function readActiveMarkdownMode(): Promise<{
+	mode: string;
+	source: boolean | undefined;
+	domIsLivePreview: boolean;
+	domHasSourceView: boolean;
+	domHasPreviewView: boolean;
+}> {
+	await switchToParentFrame();
+	return browser.executeObsidian(async ({ app, obsidian }) => {
+		const view = app.workspace.getActiveViewOfType(obsidian.MarkdownView);
+		const state = (view?.getState() ?? {}) as {
+			mode?: string;
+			source?: boolean;
+		};
+		const sourceView = document.querySelector(
+			".markdown-source-view.mod-cm6",
+		);
+		return {
+			mode: String(state.mode ?? ""),
+			source: state.source,
+			domIsLivePreview:
+				sourceView instanceof HTMLElement &&
+				sourceView.classList.contains("is-live-preview"),
+			domHasSourceView: sourceView != null,
+			domHasPreviewView:
+				document.querySelector(".markdown-preview-view") != null,
+		};
+	});
+}
+
+export interface VueInteractiveEditorHighlightSnapshot {
+	templateTag: boolean;
+	scriptHighlight: boolean;
+	stringHighlight: boolean;
+	cmTagCount: number;
+	cmKeywordCount: number;
+	cmStringCount: number;
+	hasVueInteractiveFence: boolean;
+	/** True when inspecting classic source mode (not Live Preview). */
+	isClassicSourceMode: boolean;
+}
+
+/** Inspect CM6 decorations inside vue-interactive SFC lines (source mode). */
+export async function readVueInteractiveEditorHighlight(): Promise<VueInteractiveEditorHighlightSnapshot | null> {
+	await switchToParentFrame();
+	return browser.execute(() => {
+		const sourceView = document.querySelector(
+			".markdown-source-view.mod-cm6",
+		);
+		if (!(sourceView instanceof HTMLElement)) {
+			return null;
+		}
+		const isLivePreview = sourceView.classList.contains("is-live-preview");
+		const content =
+			sourceView.querySelector(".cm-editor .cm-content") ??
+			sourceView.querySelector(".cm-content");
+		if (!(content instanceof HTMLElement)) {
+			return null;
+		}
+		const fullText = content.textContent ?? "";
+		const lines = Array.from(content.querySelectorAll(".cm-line"));
+		let templateTag = false;
+		let scriptHighlight = false;
+		let stringHighlight = false;
+		for (const line of lines) {
+			const text = line.textContent ?? "";
+			if (/<\/?template\b/.test(text) && line.querySelector(".cm-tag")) {
+				templateTag = true;
+			}
+			if (
+				(/<\/?script\b/.test(text) ||
+					/\bsetup\b/.test(text) ||
+					/\bimport\b/.test(text) ||
+					/\bconst\b/.test(text) ||
+					/\bref\b/.test(text)) &&
+				line.querySelector(".cm-tag, .cm-keyword, .cm-variable")
+			) {
+				scriptHighlight = true;
+			}
+			if (
+				(/['"`]/.test(text) || /Count:/.test(text)) &&
+				line.querySelector(".cm-string")
+			) {
+				stringHighlight = true;
+			}
+		}
+		return {
+			templateTag,
+			scriptHighlight,
+			stringHighlight,
+			cmTagCount: content.querySelectorAll(".cm-tag").length,
+			cmKeywordCount: content.querySelectorAll(".cm-keyword").length,
+			cmStringCount: content.querySelectorAll(".cm-string").length,
+			hasVueInteractiveFence: fullText.includes("vue-interactive"),
+			isClassicSourceMode: !isLivePreview,
+		};
+	});
+}
+
+/** Wait until Prism-based vue-interactive editor decorations are visible. */
+export async function waitForVueInteractiveEditorHighlight(
+	timeout = 20_000,
+): Promise<VueInteractiveEditorHighlightSnapshot> {
+	let last: VueInteractiveEditorHighlightSnapshot | null = null;
+	let lastMode: Awaited<ReturnType<typeof readActiveMarkdownMode>> | null =
+		null;
+	await browser.waitUntil(
+		async () => {
+			lastMode = await readActiveMarkdownMode();
+			if (lastMode.mode !== "source" || lastMode.source !== true) {
+				return false;
+			}
+			if (lastMode.domIsLivePreview) return false;
+			last = await readVueInteractiveEditorHighlight();
+			if (!last?.hasVueInteractiveFence) return false;
+			if (!last.isClassicSourceMode) return false;
+			return (
+				last.templateTag &&
+				last.scriptHighlight &&
+				(last.cmTagCount > 0 || last.cmKeywordCount > 0)
+			);
+		},
+		{
+			timeout,
+			timeoutMsg: `expected vue-interactive editor highlight in classic source mode; mode=${JSON.stringify(lastMode)} last=${JSON.stringify(last)}`,
+		},
+	);
+	if (!last) {
+		throw new Error("vue-interactive editor highlight snapshot missing");
+	}
+	return last;
+}
+
+/**
  * Dismiss Obsidian hover previews / popovers that can intercept clicks into
  * sandbox iframes (e.g. after opening a note while the cursor rests on a link).
  */

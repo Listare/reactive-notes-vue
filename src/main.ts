@@ -13,6 +13,7 @@ import {
 	registerThemeSync,
 } from "./processor/registerVueInteractive";
 import { registerVaultImportWatch } from "./processor/registerVaultImportWatch";
+import { registerVueInteractiveHighlight } from "./editor/registerVueInteractiveHighlight";
 import { ReactiveNotesVueSettingTab } from "./ui/ReactiveNotesVueSettingTab";
 import { syncVueInteractiveTheme } from "./theme/syncVueInteractiveTheme";
 import { configurePiniaPersistHost } from "./runtime/pinia/persistHost";
@@ -39,6 +40,7 @@ export default class ReactiveNotesVuePlugin extends Plugin {
 		syncVueInteractiveTheme(this);
 		this.addSettingTab(new ReactiveNotesVueSettingTab(this.app, this));
 		registerVueInteractiveProcessor(this);
+		registerVueInteractiveHighlight(this);
 		registerVaultImportWatch(this);
 		registerThemeSync(this);
 		registerCommands(this);
