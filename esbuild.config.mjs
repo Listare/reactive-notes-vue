@@ -197,9 +197,8 @@ const runnerContext = await esbuild.context({
 
 async function buildAll() {
 	buildSandboxTailwind({ minify: prod });
+	// runner onEnd already reads sandbox artifacts and rebuilds main.js
 	await runnerContext.rebuild();
-	readSandboxArtifactsFromDisk();
-	await pluginContext.rebuild();
 }
 
 if (prod) {
