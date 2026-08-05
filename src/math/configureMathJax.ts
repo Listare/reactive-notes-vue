@@ -90,6 +90,9 @@ function applyPreambleContent(preamble: string): void {
 /**
  * Loads MathJax (deferred until first render) and applies vault preamble TeX.
  * Must complete before mounting components that use `Latex`.
+ *
+ * Always builds the engine here so preamble macros stay on the same TeX jax
+ * that later `renderLatexToHtml` calls use (avoid rebuild via ensureMathJaxEngine).
  */
 export async function prepareMathJax(preamble: string): Promise<void> {
 	await loadMathJaxModules();
@@ -100,11 +103,11 @@ export async function prepareMathJax(preamble: string): Promise<void> {
 	resetEngine();
 	appliedPreamble = normalized;
 
-	if (!normalized) return;
-
 	try {
 		buildEngine();
-		applyPreambleContent(normalized);
+		if (normalized) {
+			applyPreambleContent(normalized);
+		}
 	} catch (err) {
 		resetEngine();
 		appliedPreamble = "";

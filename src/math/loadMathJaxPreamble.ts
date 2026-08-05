@@ -1,4 +1,5 @@
 import type { App } from "obsidian";
+import { normalizeMathJaxPreamblePath } from "../settings/normalizeMathJaxPreamblePath";
 import { readVaultText, vaultPathExists } from "../vault/vaultFileAccess";
 
 export class MathJaxPreambleError extends Error {
@@ -13,12 +14,13 @@ export async function loadMathJaxPreamble(
 	app: App,
 	preamblePath: string,
 ): Promise<string> {
-	if (!preamblePath) return "";
-	const exists = await vaultPathExists(app, preamblePath);
+	const normalized = normalizeMathJaxPreamblePath(preamblePath);
+	if (!normalized) return "";
+	const exists = await vaultPathExists(app, normalized);
 	if (!exists) {
 		throw new MathJaxPreambleError(
-			`MathJax 前置文件不存在: ${preamblePath}。请在 **设置 → Reactive Notes Vue** 中修正路径。`,
+			`MathJax 前置文件不存在: ${normalized}。请在 **设置 → Reactive Notes Vue** 中修正路径。`,
 		);
 	}
-	return (await readVaultText(app, preamblePath)).trim();
+	return (await readVaultText(app, normalized)).trim();
 }

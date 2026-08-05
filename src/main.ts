@@ -6,6 +6,7 @@ import {
 	DEFAULT_DISK_CACHE_PATH,
 	normalizeDiskCachePath,
 } from "./settings/normalizeDiskCachePath";
+import { normalizeMathJaxPreamblePath } from "./settings/normalizeMathJaxPreamblePath";
 import { registerCommands } from "./commands/registerCommands";
 import {
 	registerVueInteractiveProcessor,
@@ -51,6 +52,12 @@ export default class ReactiveNotesVuePlugin extends Plugin {
 			{};
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
 		this.settings.darkMode = normalizeDarkModePreference(data.darkMode);
+		this.settings.customScriptPath = normalizeCustomScriptPath(
+			data.customScriptPath ?? DEFAULT_SETTINGS.customScriptPath,
+		);
+		this.settings.mathJaxPreamblePath = normalizeMathJaxPreamblePath(
+			data.mathJaxPreamblePath ?? DEFAULT_SETTINGS.mathJaxPreamblePath,
+		);
 		this.settings.diskCachePath = normalizeDiskCachePath(
 			data.diskCachePath ?? DEFAULT_DISK_CACHE_PATH,
 		);

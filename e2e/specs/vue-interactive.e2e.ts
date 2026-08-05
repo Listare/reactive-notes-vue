@@ -113,6 +113,46 @@ describe("vue-interactive e2e", function () {
 			await switchToParentFrame();
 		});
 
+		it("applies MathJax preamble macros from settings", async function () {
+			// Ensure settings are applied (prior tests may have mutated them).
+			await applyE2ePluginSettings();
+			await obsidianPage.openFile("mathjax.md");
+			await switchToSandboxFrame(0);
+			const host = browser.$(".preamble-macro");
+			await host.waitForExist({ timeout: 30_000 });
+			await browser.waitUntil(
+				async () => {
+					const html = await host.getHTML(false);
+					// \RR → \mathbb{R} (U+211D) when mathjax-preamble.sty is loaded.
+					return /TEX-D-211D|ℝ/.test(html);
+				},
+				{
+					timeout: 30_000,
+					timeoutMsg:
+						"expected preamble macro \\RR to render as blackboard-bold R (set mathJaxPreamblePath)",
+				},
+			);
+			await switchToParentFrame();
+		});
+
+		it("shows error when MathJax preamble path is missing", async function () {
+			await browser.executeObsidian(async ({ plugins }) => {
+				const plugin = plugins.reactiveNotesVue;
+				plugin.settings.mathJaxPreamblePath = "missing-preamble.sty";
+				await plugin.saveSettings();
+			});
+			try {
+				await obsidianPage.openFile("counter.md");
+				await obsidianPage.openFile("mathjax.md");
+				await browser.executeObsidianCommand(
+					"reactive-notes-vue:refresh-vue-interactive-blocks",
+				);
+				await expectCompileError(/MathJax 前置文件不存在|missing-preamble/i);
+			} finally {
+				await applyE2ePluginSettings();
+			}
+		});
+
 		it("shares Pinia state across blocks", async function () {
 			await obsidianPage.openFile("pinia.md");
 			await switchToSandboxFrame(0);

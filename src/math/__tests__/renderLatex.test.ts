@@ -24,10 +24,19 @@ describe("renderLatexToHtml", () => {
 	});
 
 	it("applies macros from preamble", async () => {
+		await prepareMathJax("");
+		const without = renderLatexToHtml(String.raw`\RR`, false);
+		expect(without).toContain("<svg");
+		// Without preamble, noundefined renders \RR as characters (not ℝ).
+		expect(without).not.toMatch(/TEX-D-211D|ℝ/);
+
+		await resetMathJaxForTests();
 		await prepareMathJax(String.raw`\newcommand{\RR}{\mathbb{R}}`);
-		const html = renderLatexToHtml(String.raw`\RR`, false);
-		expect(html).toContain("<svg");
-		expect(html).toMatch(/R|ℝ|bold|mi/);
+		const withPreamble = renderLatexToHtml(String.raw`\RR`, false);
+		expect(withPreamble).toContain("<svg");
+		// Blackboard-bold R (U+211D) from \mathbb{R}.
+		expect(withPreamble).toMatch(/TEX-D-211D|ℝ/);
+		expect(withPreamble).not.toEqual(without);
 	});
 
 	it("renders ams cases environment", async () => {
