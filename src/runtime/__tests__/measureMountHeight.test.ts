@@ -195,4 +195,34 @@ describe("measureMountHeight", () => {
 		// border-box 40 + shadow extent 16 + safety 1
 		expect(measureMountHeight(mount)).toBeGreaterThanOrEqual(57);
 	});
+
+	it("includes Teleport content under body outside the mount subtree", () => {
+		const mount = document.createElement("div");
+		stubLayout(mount, {
+			offsetHeight: 40,
+			scrollHeight: 40,
+			rect: new DOMRect(0, 0, 200, 40),
+		});
+		document.body.appendChild(mount);
+
+		const portal = document.createElement("div");
+		stubLayout(portal, {
+			offsetTop: 0,
+			offsetHeight: 120,
+			rect: new DOMRect(0, 80, 100, 120),
+		});
+		document.body.appendChild(portal);
+
+		vi.spyOn(window, "getComputedStyle").mockImplementation(() => {
+			return {
+				display: "block",
+				visibility: "visible",
+				marginBottom: "0px",
+				boxShadow: "none",
+			} as CSSStyleDeclaration;
+		});
+
+		// portal bottom 200 - mountTop 0 + safety 1
+		expect(measureMountHeight(mount)).toBeGreaterThanOrEqual(201);
+	});
 });

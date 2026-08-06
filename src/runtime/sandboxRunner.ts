@@ -36,6 +36,7 @@ const { Vue } = resolveSharedRuntime();
 
 let vueApp: VueApp | null = null;
 let activeRender: ActiveRenderSession | null = null;
+let activeScopeId: string | null = null;
 const styleEls: HTMLStyleElement[] = [];
 let resizeObserver: ResizeObserver | null = null;
 let pendingResizeFrame = 0;
@@ -81,6 +82,15 @@ function reportRuntimeError(err: unknown): void {
 	);
 }
 
+function clearScopeRoots(): void {
+	if (!activeScopeId) return;
+	const attr = scopeDataAttribute(activeScopeId);
+	document.body.removeAttribute(attr);
+	const mount = document.getElementById("vue-interactive-mount");
+	mount?.removeAttribute(attr);
+	activeScopeId = null;
+}
+
 function clearMount(): void {
 	activeRender = null;
 	if (vueApp) {
@@ -91,6 +101,7 @@ function clearMount(): void {
 		el.remove();
 	}
 	styleEls.length = 0;
+	clearScopeRoots();
 	const mount = document.getElementById("vue-interactive-mount");
 	if (mount) {
 		mount.replaceChildren();
@@ -111,7 +122,12 @@ function injectStyles(styles: SandboxStyleChunk[], scopeId: string): void {
 }
 
 function applyScopeRoot(mountEl: HTMLElement, scopeId: string): void {
-	mountEl.setAttribute(scopeDataAttribute(scopeId), "");
+	clearScopeRoots();
+	activeScopeId = scopeId;
+	const attr = scopeDataAttribute(scopeId);
+	mountEl.setAttribute(attr, "");
+	// So scoped ancestor selectors still match content Teleported to body.
+	document.body.setAttribute(attr, "");
 }
 
 function applySandboxTheme(theme: VueInteractiveTheme): void {
@@ -170,6 +186,8 @@ function watchResize(requestId: string): void {
 		scheduleReportResize(requestId);
 	});
 	resizeObserver.observe(mount);
+	// Teleported nodes live under body outside mount.
+	resizeObserver.observe(document.body);
 	requestMeasure(requestId);
 	scheduleReportResize(requestId);
 }

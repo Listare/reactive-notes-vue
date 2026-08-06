@@ -1,6 +1,6 @@
 # Reactive Notes Vue
 
-在 Obsidian 笔记中用 `vue-interactive` 代码块编写 **Vue 3 + TypeScript + `<script setup>`** 单文件组件（SFC），在阅读模式下实时渲染。
+在 Obsidian 笔记中用 `vue-interactive` 代码块编写 **Vue 3 + TypeScript +** `<script setup>` 单文件组件（SFC），在阅读模式下实时渲染。
 
 ## 要求
 
@@ -9,7 +9,7 @@
 
 ## 用法
 
-````markdown
+```markdown
 ```vue-interactive
 <template>
   <button @click="count++">Count: {{ count }}</button>
@@ -27,32 +27,40 @@ button {
 }
 </style>
 ```
-````
+```
 
 - 必须包含 `<template>` 与 `<script setup>`；若未写 `lang`，会自动补上 `lang="ts"`。
-- 围栏可选属性（写在语言标识后）：`{name=名称}` 供 `?block=` 导入；`{hide=true}` 时阅读模式不渲染（仅作模块导出）。可组合，例如 ` ```vue-interactive {name=Chip, hide=true}`。
+- 围栏可选属性（写在语言标识后）：`{name=名称}` 供 `?block=` 导入；`{hide=true}` 时阅读模式不渲染（仅作模块导出）。可组合，例如  ````vue-interactive {name=Chip, hide=true}`。
 - 支持从库内文件或 HTTPS URL 导入（见下方）；`vue`、`pinia`、Obsidian API（`@obsidian`）、主题（`@vue-interactive/theme`）、MathJax（`@vue-interactive/math`）与 Node 内置模块（仅 `node:` 前缀）由插件内置，其余 npm 包可通过 ESM CDN URL 引入。
+
+
 
 ### 命令与设置
 
 命令面板中可用：
 
-| 命令 | 作用 |
-|------|------|
-| **刷新当前笔记中的 vue-interactive 块** | 按当前笔记内容重新编译并挂载本页可见块 |
-| **清除所有交互状态** | 销毁内存中的 Pinia store 并重新挂载；已 `persist` 的 JSON 文件会保留并重新 hydrate |
+
+| 命令                             | 作用                                                           |
+| ------------------------------ | ------------------------------------------------------------ |
+| **刷新当前笔记中的 vue-interactive 块** | 按当前笔记内容重新编译并挂载本页可见块                                          |
+| **清除所有交互状态**                   | 销毁内存中的 Pinia store 并重新挂载；已 `persist` 的 JSON 文件会保留并重新 hydrate |
+
 
 在 **设置 → Reactive Notes Vue** 可配置：
 
-| 设置项 | 说明 |
-|--------|------|
-| **暗色模式** | 跟随 Obsidian / 强制亮色 / 强制暗色 |
-| **自定义脚本路径** | `@custom-script/` 导入根目录（如 `scripts`） |
-| **MathJax 前置文件** | 库内 TeX 前置（如 `preamble.sty`） |
-| **允许扩展 Node 内置模块** | 开放 `node:fs` 等（默认仅安全子集） |
-| **启用磁盘缓存** | 将编译结果与 ESM CDN 模块缓存到库内文件夹，重启后可跳过重复编译与下载（默认关闭） |
-| **磁盘缓存路径** | 库内文件夹（默认 `.cache`）；实际写入其下的 `reactive-notes-vue/` 子目录 |
-| **清除磁盘缓存** | 清空内存缓存并删除上述插件缓存文件夹 |
+
+| 设置项                | 说明                                                   |
+| ------------------ | ---------------------------------------------------- |
+| **暗色模式**           | 跟随 Obsidian / 强制亮色 / 强制暗色                            |
+| **自定义脚本路径**        | `@custom-script/` 导入根目录（如 `scripts`）                 |
+| **MathJax 前置文件**   | 库内 TeX 前置（如 `preamble.sty`）                          |
+| **允许扩展 Node 内置模块** | 开放 `node:fs` 等（默认仅安全子集）                              |
+| **启用磁盘缓存**         | 将编译结果与 ESM CDN 模块缓存到库内文件夹，重启后可跳过重复编译与下载（默认关闭）        |
+| **磁盘缓存路径**         | 库内文件夹（默认 `.cache`）；实际写入其下的 `reactive-notes-vue/` 子目录 |
+| **清除磁盘缓存**         | 清空内存缓存并删除上述插件缓存文件夹                                   |
+
+
+
 
 ### Pinia（全局共享）
 
@@ -79,7 +87,9 @@ const { count } = storeToRefs(store);
 
 - 请使用内置 `pinia`，不要从 CDN 再引入一份（避免双 Vue / 双 Pinia）。
 - `defineStore` 的 id 在全局唯一；不同代码块用同一 id 即读写同一 store。
-- **`persist`**：把 `$state` 读写到仓库中的 `.json` 文件。路径支持 `./` / `../`（相对**定义该 store 的模块**所在文件）、`@/`（库根）、`@custom-script/`（设置中的脚本目录）。文件不存在时首次写入会自动创建；状态变更默认防抖 300ms 后写回。
+- `persist`：把 `$state` 读写到仓库中的 `.json` 文件。路径支持 `./` / `../`（相对**定义该 store 的模块**所在文件）、`@/`（库根）、`@custom-script/`（设置中的脚本目录）。文件不存在时首次写入会自动创建；状态变更默认防抖 300ms 后写回。
+
+
 
 ### Obsidian API（`@obsidian`）
 
@@ -94,12 +104,14 @@ const path = file ? await file.path : "无";
 new Notice(`当前文件：${path}`);
 ```
 
-| 写法 | 同步？ | 说明 |
-|------|--------|------|
-| `app.vault` / `cache.frontmatter` | 同步 | 只拼路径，拿到新的 Proxy |
-| `app.vault.getMarkdownFiles()` | 异步 | `()` 触发跨窗口调用，返回 `Promise` |
-| `await file.path` / `await cache.frontmatter` | 异步 | 属性 Proxy 可 `await`，才会真正取值 |
-| `getActiveFile()` 等返回的对象本身 | 同步拿到 Proxy | 根引用不是 thenable，避免 `await file` 死循环；读字段仍需 `await` |
+
+| 写法                                            | 同步？        | 说明                                               |
+| --------------------------------------------- | ---------- | ------------------------------------------------ |
+| `app.vault` / `cache.frontmatter`             | 同步         | 只拼路径，拿到新的 Proxy                                  |
+| `app.vault.getMarkdownFiles()`                | 异步         | `()` 触发跨窗口调用，返回 `Promise`                        |
+| `await file.path` / `await cache.frontmatter` | 异步         | 属性 Proxy 可 `await`，才会真正取值                        |
+| `getActiveFile()` 等返回的对象本身                    | 同步拿到 Proxy | 根引用不是 thenable，避免 `await file` 死循环；读字段仍需 `await` |
+
 
 从 API 拿到的对象（如 `TFile`）可以再传回其他 Obsidian 方法（如 `getFileCache(file)`）；不要把沙盒里自造的普通对象当作 Obsidian 实例传入。
 
@@ -107,9 +119,11 @@ new Notice(`当前文件：${path}`);
 - `import { Notice, Modal, … } from '@obsidian'`：与 `import { … } from 'obsidian'` 相同。
 - 亦支持 `import * as Obs from '@obsidian'`（`Obs.default` 为 `app`）。
 
+
+
 ### Node 内置模块（`node:`）
 
-桌面端可通过 **`node:` 前缀**导入 Node 内置模块（不支持裸名 `path` / `fs`）。与 `@obsidian` 相同，经 MessageChannel 代理到宿主，**方法调用与取值均为异步**。
+桌面端可通过 `node:` **前缀**导入 Node 内置模块（不支持裸名 `path` / `fs`）。与 `@obsidian` 相同，经 MessageChannel 代理到宿主，**方法调用与取值均为异步**。
 
 ```ts
 import { join } from "node:path";
@@ -121,30 +135,36 @@ const p = await join("notes", "demo.md");
 const req = await http.get("http://example.com");
 ```
 
-| 默认可用（安全子集） | 需在设置中开启「允许扩展 Node 内置模块」 |
-|----------------------|------------------------------------------|
+
+| 默认可用（安全子集）                                                                                                                                                                                                                      | 需在设置中开启「允许扩展 Node 内置模块」                                                               |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | `node:path`、`node:path/posix`、`node:path/win32`、`node:url`、`node:querystring`、`node:buffer`、`node:util`、`node:events`、`node:assert`、`node:string_decoder`、`node:timers`、`node:timers/promises`、`node:constants`、`node:punycode` | `node:fs`、`node:fs/promises`、`node:os`、`node:crypto`、`node:child_process` 等其余 builtin |
+
 
 - 仅认 `node:`：`import { join } from 'node:path'`。
 - 同步风格的 Node API（如 `fs.readFileSync`）在沙盒中仍会变成异步 RPC；优先使用 `node:fs/promises`。
 - 不要对代理对象使用同步的 `String(proxy)`（`toString` 也是异步 RPC）；请 `await` 方法/属性拿到原始值。
 - 扩展模块会访问本机能力，请仅信任自己的笔记脚本。
 
+
+
 ### 文件导入
 
-| 前缀 | 含义 |
-|------|------|
-| `./路径` | 相对于**当前笔记**所在目录 |
-| `@/路径` | 相对于**库根目录** |
-| `@custom-script/路径` | 相对于插件设置中的「自定义脚本路径」 |
+
+| 前缀                       | 含义                                                 |
+| ------------------------ | -------------------------------------------------- |
+| `./路径`                   | 相对于**当前笔记**所在目录                                    |
+| `@/路径`                   | 相对于**库根目录**                                        |
+| `@custom-script/路径`      | 相对于插件设置中的「自定义脚本路径」                                 |
 | `https://…` / `http://…` | 从 ESM CDN 等远程 URL 动态导入（如 [esm.sh](https://esm.sh)） |
+
 
 可导入类型：
 
-- **`.js` / `.ts`**：作为模块（`export default`）
-- **`.css`**：注入为全局样式
-- **`.vue`**：按 SFC 编译
-- **`.md`**：无 `?block=` 时作为文本 `{ default: string }`；`路径?block=名称` 引用文中 ` ```lang {name=名称}` 代码块
+- `.js` **/** `.ts`：作为模块（`export default`）
+- `.css`：注入为全局样式
+- `.vue`：按 SFC 编译
+- `.md`：无 `?block=` 时作为文本 `{ default: string }`；`路径?block=名称` 引用文中  ````lang {name=名称}` 代码块
 - **其他资源**（图片、字体等）：`{ default: 资源 URL }`
 
 非 JS 类语言的命名代码块（如 `yaml`、`json`）作为数据对象导入；`json` 会解析为对象。
@@ -171,7 +191,7 @@ URL 中的查询参数会原样保留（例如 `https://esm.sh/vue?target=esnext
 
 ### 主题：`getTheme()` 与暗色模式
 
-在 `<script setup>` 中从内置模块导入并调用 **`getTheme()`**：
+在 `<script setup>` 中从内置模块导入并调用 `getTheme()`：
 
 ```ts
 import { getTheme } from "@vue-interactive/theme";
@@ -190,9 +210,9 @@ const theme = computed(() => getTheme());
 
 ### MathJax：`Latex` 组件
 
-从内置模块导入 **`Latex`**，绑定 `latex` 字符串即可渲染（MathJax 3，沙盒内独立打包，无需联网）。
+从内置模块导入 `Latex`，绑定 `latex` 字符串即可渲染（MathJax 3，沙盒内独立打包，无需联网）。
 
-引擎配置对齐 Obsidian 内置 MathJax（[高级排版 → Math](https://help.obsidian.md/Editing+and+formatting/Advanced+formatting+syntax#Math) / MathJax [`input/tex` 扩展](https://docs.mathjax.org/en/v3.2/input/tex/extensions.html)）：默认包含 `\require`、`autoload`、AMS 等，并启用 Safe；扩展包离线预加载，可在公式中写 `\require{physics}` 等。
+引擎配置对齐 Obsidian 内置 MathJax（[高级排版 → Math](https://help.obsidian.md/Editing+and+formatting/Advanced+formatting+syntax#Math) / MathJax `input/tex` [扩展](https://docs.mathjax.org/en/v3.2/input/tex/extensions.html)）：默认包含 `\require`、`autoload`、AMS 等，并启用 Safe；扩展包离线预加载，可在公式中写 `\require{physics}` 等。
 
 ```ts
 import { Latex } from "@vue-interactive/math";
@@ -220,6 +240,10 @@ const integral = ref(String.raw`\int_0^1 x^2\, dx`);
 
 演示见 examples 中的 [[mathjax]]。
 
+### Teleport（块内）
+
+支持 Vue `<Teleport>`；字符串 `to`（如 `body`、`#id`）在**本块沙盒 iframe** 内解析，浮层不会盖住笔记外的 Obsidian UI。`position: fixed` 相对 iframe 视口；传送内容会计入块高度。演示见 [[teleport]]。
+
 ## 开发
 
 ```bash
@@ -238,7 +262,7 @@ pnpm run build    # 生产构建，并同步到 examples / e2e-vault
 
 ### 演示库（examples）与 E2E
 
-仓库内附带 Obsidian 演示库 `examples/`（计数器、导入、Pinia、主题、MathJax、错误面板等）。**`pnpm run dev` / `pnpm run build` 完成后会自动把插件复制到** `examples/` 与 `test/e2e-vault/` 的插件目录。
+仓库内附带 Obsidian 演示库 `examples/`（计数器、导入、Pinia、主题、MathJax、错误面板等）。`pnpm run dev` **/** `pnpm run build` **完成后会自动把插件复制到** `examples/` 与 `test/e2e-vault/` 的插件目录。
 
 自动化回归用 WDIO（[wdio-obsidian-service](https://github.com/jesse-r-s-hines/wdio-obsidian-service)），vault 为 `test/e2e-vault/`：
 
@@ -260,19 +284,21 @@ pnpm run test:e2e
 
 ## 已知问题
 
-- **滚动后状态丢失**：阅读模式下，将 `vue-interactive` 块滚出视口再滚回时，组件会重新挂载，**块内局部响应式状态（如 `ref` 计数）会重置**。这是 Obsidian 阅读视图虚拟化与当前沙盒生命周期下的预期行为，**短期内不计划修复**。需要跨挂载保留状态时，优先用内置 Pinia 的 `persist` 写库内 JSON；也可自行写入 `localStorage` 或其它库内文件。
+- **滚动后状态丢失**：阅读模式下，将 `vue-interactive` 块滚出视口再滚回时，组件会重新挂载，**块内局部响应式状态（如** `ref` **计数）会重置**。这是 Obsidian 阅读视图虚拟化与当前沙盒生命周期下的预期行为，**短期内不计划修复**。需要跨挂载保留状态时，优先用内置 Pinia 的 `persist` 写库内 JSON；也可自行写入 `localStorage` 或其它库内文件。
 
 ## 架构
 
-| 目录 | 职责 |
-|------|------|
-| `src/compiler/` | SFC 规范化、compiler-sfc 编译、内置 import 改写 |
-| `src/bundler/` | 库内依赖图收集、转译与模块拼接 |
-| `src/runtime/` | 沙盒 iframe、桥接（Obsidian / Node）、挂载与高度/重挂载 |
-| `src/processor/` | `registerMarkdownCodeBlockProcessor`、vault 监听与重挂载调度 |
-| `src/cache/` | 编译与 ESM 的内存 / 可选磁盘缓存 |
-| `src/vault/` / `src/resolver/` / `src/markdown/` | 库文件读取、路径解析、围栏与命名代码块 |
-| `src/builtin/` / `src/theme/` / `src/math/` | 内置模块判定、主题同步、MathJax |
-| `src/settings/` / `src/commands/` / `src/ui/` | 设置规范化、命令、设置页与错误展示 |
+
+| 目录                                               | 职责                                                  |
+| ------------------------------------------------ | --------------------------------------------------- |
+| `src/compiler/`                                  | SFC 规范化、compiler-sfc 编译、内置 import 改写                |
+| `src/bundler/`                                   | 库内依赖图收集、转译与模块拼接                                     |
+| `src/runtime/`                                   | 沙盒 iframe、桥接（Obsidian / Node）、挂载与高度/重挂载             |
+| `src/processor/`                                 | `registerMarkdownCodeBlockProcessor`、vault 监听与重挂载调度 |
+| `src/cache/`                                     | 编译与 ESM 的内存 / 可选磁盘缓存                                |
+| `src/vault/` / `src/resolver/` / `src/markdown/` | 库文件读取、路径解析、围栏与命名代码块                                 |
+| `src/builtin/` / `src/theme/` / `src/math/`      | 内置模块判定、主题同步、MathJax                                 |
+| `src/settings/` / `src/commands/` / `src/ui/`    | 设置规范化、命令、设置页与错误展示                                   |
+
 
 参考实现（React 版）见 [ReactiveNotes](https://github.com/Prodigist/ReactiveNotes)。

@@ -86,6 +86,21 @@ export function measureMountHeight(mount: HTMLElement): number {
 
 	const doc = mount.ownerDocument;
 	const body = doc.body;
+	// Teleport targets (e.g. body) sit outside the mount subtree.
+	for (const node of Array.from(body.querySelectorAll("*"))) {
+		if (!(node instanceof HTMLElement)) continue;
+		if (mount.contains(node)) continue;
+		const style = computedStyle(node);
+		if (style.display === "none" || style.visibility === "hidden") {
+			continue;
+		}
+		const beyond = bottomExtentBeyondBorderBox(style);
+		const rect = node.getBoundingClientRect();
+		if (rect.width > 0 || rect.height > 0) {
+			height = Math.max(height, rect.bottom - mountTop + beyond);
+		}
+	}
+
 	const root = doc.documentElement;
 	height = Math.max(
 		height,

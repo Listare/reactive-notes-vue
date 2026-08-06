@@ -7,8 +7,10 @@ import {
 	expectCompileError,
 	expectErrorPanel,
 	expectRuntimeError,
+	snapshotVueBlockLayouts,
 	switchToParentFrame,
 	switchToSandboxFrame,
+	waitForVueBlockHostHeight,
 } from "../helpers";
 
 describe("vue-interactive e2e", function () {
@@ -194,6 +196,73 @@ describe("vue-interactive e2e", function () {
 			await switchToSandboxFrame(1);
 			await expect(browser.$(".pinia-count-b")).toHaveText("1");
 			await switchToParentFrame();
+		});
+
+		it("teleports overlay to sandbox body, not Obsidian host", async function () {
+			await obsidianPage.openFile("teleport.md");
+			await switchToParentFrame();
+			await browser
+				.$("iframe.vue-interactive-sandbox")
+				.waitForExist({ timeout: 20_000 });
+			const closed = (await snapshotVueBlockLayouts())[0];
+			if (!closed || !(closed.hostHeight > 0)) {
+				throw new Error("teleport block host height missing when closed");
+			}
+
+			await switchToSandboxFrame(0);
+			const openBtn = browser.$("button.teleport-open-btn");
+			await openBtn.waitForExist({ timeout: 20_000 });
+			expect(await browser.$(".teleport-overlay").isExisting()).toBe(false);
+			await openBtn.click();
+
+			const location = await browser.execute(() => {
+				const panel = document.querySelector(".teleport-overlay");
+				const mount = document.getElementById("vue-interactive-mount");
+				return {
+					exists: panel != null,
+					text: panel?.textContent ?? "",
+					inMount: mount?.contains(panel) ?? false,
+					parentIsBody: panel?.parentElement === document.body,
+				};
+			});
+			expect(location.exists).toBe(true);
+			expect(location.text).toContain("Teleported panel");
+			expect(location.inMount).toBe(false);
+			expect(location.parentIsBody).toBe(true);
+
+			await switchToParentFrame();
+			const hostHasOverlay = await browser.execute(() => {
+				return document.querySelector(".teleport-overlay") != null;
+			});
+			expect(hostHasOverlay).toBe(false);
+
+			await waitForVueBlockHostHeight(0, closed.hostHeight + 20);
+
+			await clickInSandbox("button.teleport-dismiss-btn");
+			await browser.waitUntil(
+				async () => {
+					return browser.execute(() => {
+						const iframe = document.querySelector(
+							"iframe.vue-interactive-sandbox",
+						);
+						if (
+							!(iframe instanceof HTMLIFrameElement) ||
+							!iframe.contentDocument
+						) {
+							return false;
+						}
+						return (
+							iframe.contentDocument.querySelector(
+								".teleport-overlay",
+							) == null
+						);
+					});
+				},
+				{
+					timeout: 10_000,
+					timeoutMsg: "expected teleported overlay to dismiss",
+				},
+			);
 		});
 	});
 

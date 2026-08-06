@@ -13,6 +13,7 @@ import {
 import type { SharedVueRuntime } from "./sharedRuntimeTypes";
 import type { PiniaForPath } from "./pinia/bindPiniaNamespace";
 import { createImportUrl } from "./esm/createImportUrl";
+import { withSandboxTeleport } from "./sandboxTeleport";
 
 type UrlModule = Record<string, unknown>;
 type VueNamespace = SharedVueRuntime["Vue"];
@@ -84,7 +85,7 @@ export async function executeModule(
 		throw enhanceModuleLoadError(e, stackRegions);
 	}
 	const result = await fn(
-		Vue,
+		withSandboxTeleport(Vue),
 		importUrl,
 		obsidian,
 		getThemeModule,

@@ -13,6 +13,7 @@ Demo vault for browsing features locally.
 | Note | Covers |
 |------|--------|
 | [[counter]] | Basic click / `ref` |
+| [[teleport]] | Block-scoped `<Teleport to="body">` |
 | [[scoped-styles]] | `<style scoped>` |
 | [[imports]] | `@custom-script/` and `?block=` |
 | [[obsidian-api]] | `@obsidian` |
