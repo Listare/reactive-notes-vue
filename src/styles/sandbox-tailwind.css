@@ -1,0 +1,4 @@
+/* Loaded as type="text/tailwindcss" with @tailwindcss/browser in the sandbox. */
+
+/* Tailwind `dark:` — same as ReactiveNotes: `.dark` on the block root. */
+@custom-variant dark (&:where(.dark, .dark *));

@@ -60,3 +60,16 @@ import { ref } from 'vue'
 const n = ref(0)
 </script>
 ```
+
+## Arbitrary values (runtime Tailwind)
+
+```vue-interactive
+<template>
+  <div
+    data-testid="tw-arbitrary"
+    class="rounded-md bg-[#112233] px-3 py-2 text-sm text-[#eeddcc]"
+  >
+    arbitrary bg-[#112233]
+  </div>
+</template>
+```

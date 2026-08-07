@@ -5,7 +5,7 @@
 			"@sandbox-runner-script": [
 				"runtime/sandboxRunnerPlaceholder.ts"
 			],
-			"@sandbox-tailwind-css": [
+			"@sandbox-tailwind-assets": [
 				"runtime/sandboxTailwindPlaceholder.ts"
 			]
 		},

@@ -3,7 +3,7 @@ import { ObsidianBridgeSession } from "./obsidian/ObsidianBridgeSession";
 import { NodeBridgeSession } from "./node/NodeBridgeSession";
 import { buildSandboxSrcdoc } from "./sandboxSrcdoc";
 import { getSandboxRunnerScript } from "./sandboxRunnerBundle";
-import { getSandboxTailwindCss } from "./sandboxTailwindBundle";
+import { getSandboxTailwindAssets } from "./sandboxTailwindBundle";
 import type {
 	SandboxInbound,
 	SandboxOutbound,
@@ -90,7 +90,7 @@ export class SandboxFrame {
 		iframe.style.overflow = "hidden";
 		iframe.srcdoc = buildSandboxSrcdoc(
 			runnerScript,
-			getSandboxTailwindCss(),
+			getSandboxTailwindAssets(),
 		);
 
 		this.iframe = iframe;

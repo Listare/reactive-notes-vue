@@ -185,9 +185,7 @@ URL 中的查询参数会原样保留（例如 `https://esm.sh/vue?target=esnext
 
 ### Tailwind CSS
 
-`vue-interactive` 沙盒内已内置 [Tailwind CSS v4](https://tailwindcss.com/)，可在 `<template>` 中直接使用工具类（如 `flex`、`p-4`、`dark:bg-slate-800`）。`dark:` 依赖容器上的 `.dark` 类（与 [ReactiveNotes](https://github.com/Prodigist/ReactiveNotes) 相同）。
-
-构建时会扫描 `src/`、`examples/`、`test/fixtures/` 与 `test/e2e-vault/` 中的类名，并对常用工具类做 safelist；笔记里若使用未收录的类名，可能需在 `src/styles/sandbox.css` 中补充 `@source inline(...)` 后重新 `pnpm run build`。
+`vue-interactive` 沙盒内已内置 [Tailwind CSS v4](https://tailwindcss.com/) 的浏览器运行时（`@tailwindcss/browser`，离线打进插件，无需联网），会按代码块 DOM 动态生成工具类。可在 `<template>` 中直接使用任意工具类与 arbitrary values（如 `flex`、`p-4`、`dark:bg-slate-800`、`bg-[#112233]`）。`dark:` 依赖容器上的 `.dark` 类（与 [ReactiveNotes](https://github.com/Prodigist/ReactiveNotes) 相同）。
 
 ### 主题：`getTheme()` 与暗色模式
 

@@ -34,7 +34,6 @@ export default tseslint.config(
 		"versions.json",
 		"main.js",
 		"sandbox-runner.js",
-		"sandbox-tailwind.css",
 		"scripts/**",
 		"examples/**",
 		"test/fixtures/**",

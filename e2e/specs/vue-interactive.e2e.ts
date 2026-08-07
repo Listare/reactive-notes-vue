@@ -102,6 +102,29 @@ describe("vue-interactive e2e", function () {
 			await switchToParentFrame();
 		});
 
+		it("generates arbitrary Tailwind utilities at runtime", async function () {
+			await obsidianPage.openFile("theme-tailwind.md");
+			await switchToSandboxFrame(2);
+			const el = browser.$("[data-testid='tw-arbitrary']");
+			await el.waitForExist({ timeout: 20_000 });
+			await browser.waitUntil(
+				async () => {
+					const bg = await el.getCSSProperty("background-color");
+					const value = String(bg.value ?? "").toLowerCase();
+					return (
+						value.includes("17, 34, 51") ||
+						value.includes("#112233") ||
+						value.includes("112233")
+					);
+				},
+				{
+					timeout: 20_000,
+					timeoutMsg: "expected runtime Tailwind bg-[#112233]",
+				},
+			);
+			await switchToParentFrame();
+		});
+
 		it("renders MathJax SVG", async function () {
 			await obsidianPage.openFile("mathjax.md");
 			await switchToSandboxFrame(0);
