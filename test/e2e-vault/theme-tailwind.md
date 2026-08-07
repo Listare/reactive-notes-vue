@@ -72,4 +72,7 @@ const n = ref(0)
     arbitrary bg-[#112233]
   </div>
 </template>
+
+<script setup lang="ts">
+</script>
 ```

@@ -94,9 +94,11 @@ export function createSandboxTeleport(vue: VueNamespace): Component {
 export function withSandboxTeleport(vue: VueNamespace): VueNamespace {
 	const Teleport = createSandboxTeleport(vue);
 	return new Proxy(vue, {
-		get(target, prop, receiver) {
-			if (prop === "Teleport") return Teleport;
-			return Reflect.get(target, prop, receiver);
+		get(target, prop, receiver): unknown {
+			if (prop === "Teleport") {
+				return Teleport;
+			}
+			return Reflect.get(target, prop, receiver) as unknown;
 		},
-	}) as VueNamespace;
+	});
 }

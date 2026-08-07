@@ -10,6 +10,7 @@ import {
 	snapshotVueBlockLayouts,
 	switchToParentFrame,
 	switchToSandboxFrame,
+	waitForSandboxCount,
 	waitForVueBlockHostHeight,
 } from "../helpers";
 
@@ -104,6 +105,7 @@ describe("vue-interactive e2e", function () {
 
 		it("generates arbitrary Tailwind utilities at runtime", async function () {
 			await obsidianPage.openFile("theme-tailwind.md");
+			await waitForSandboxCount(3, 40_000);
 			await switchToSandboxFrame(2);
 			const el = browser.$("[data-testid='tw-arbitrary']");
 			await el.waitForExist({ timeout: 20_000 });
