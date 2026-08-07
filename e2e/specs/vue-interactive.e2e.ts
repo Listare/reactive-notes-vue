@@ -106,25 +106,37 @@ describe("vue-interactive e2e", function () {
 		it("generates arbitrary Tailwind utilities at runtime", async function () {
 			await obsidianPage.openFile("theme-tailwind.md");
 			await waitForSandboxCount(3, 40_000);
-			await switchToSandboxFrame(2);
-			const el = browser.$("[data-testid='tw-arbitrary']");
-			await el.waitForExist({ timeout: 20_000 });
-			await browser.waitUntil(
-				async () => {
-					const bg = await el.getCSSProperty("background-color");
-					const value = String(bg.value ?? "").toLowerCase();
-					return (
-						value.includes("17, 34, 51") ||
-						value.includes("#112233") ||
-						value.includes("112233")
+			try {
+				await switchToSandboxFrame(2);
+				const el = browser.$("[data-testid='tw-arbitrary']");
+				await el.waitForExist({ timeout: 20_000 });
+				let lastBg = "";
+				try {
+					await browser.waitUntil(
+						async () => {
+							lastBg = await browser.execute(() => {
+								const node = document.querySelector(
+									"[data-testid='tw-arbitrary']",
+								);
+								if (!(node instanceof HTMLElement)) return "";
+								return getComputedStyle(node).backgroundColor;
+							});
+							// rgb/rgba with commas or spaces: 17,34,51 or 17 34 51
+							return (
+								/rgba?\(17,\s*34,\s*51\b/.test(lastBg) ||
+								/rgba?\(17\s+34\s+51\b/.test(lastBg)
+							);
+						},
+						{ timeout: 40_000 },
 					);
-				},
-				{
-					timeout: 20_000,
-					timeoutMsg: "expected runtime Tailwind bg-[#112233]",
-				},
-			);
-			await switchToParentFrame();
+				} catch {
+					throw new Error(
+						`expected runtime Tailwind bg-[#112233], got ${JSON.stringify(lastBg)}`,
+					);
+				}
+			} finally {
+				await switchToParentFrame();
+			}
 		});
 
 		it("renders MathJax SVG", async function () {
