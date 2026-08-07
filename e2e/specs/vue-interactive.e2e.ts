@@ -110,28 +110,24 @@ describe("vue-interactive e2e", function () {
 				await switchToSandboxFrame(2);
 				const el = browser.$("[data-testid='tw-arbitrary']");
 				await el.waitForExist({ timeout: 20_000 });
-				let lastBg = "";
+				let last: unknown = null;
 				try {
 					await browser.waitUntil(
 						async () => {
-							lastBg = await browser.execute(() => {
-								const node = document.querySelector(
-									"[data-testid='tw-arbitrary']",
-								);
-								if (!(node instanceof HTMLElement)) return "";
-								return getComputedStyle(node).backgroundColor;
-							});
-							// rgb/rgba with commas or spaces: 17,34,51 or 17 34 51
-							return (
-								/rgba?\(17,\s*34,\s*51\b/.test(lastBg) ||
-								/rgba?\(17\s+34\s+51\b/.test(lastBg)
-							);
+							const bg = await el.getCSSProperty("background-color");
+							last = bg;
+							const hex = String(
+								(bg.parsed as { hex?: string } | undefined)?.hex ??
+									"",
+							).toLowerCase();
+							// WDIO normalizes colors to rgba(...) without spaces and sets parsed.hex.
+							return hex === "#112233";
 						},
 						{ timeout: 40_000 },
 					);
 				} catch {
 					throw new Error(
-						`expected runtime Tailwind bg-[#112233], got ${JSON.stringify(lastBg)}`,
+						`expected runtime Tailwind bg-[#112233], got ${JSON.stringify(last)}`,
 					);
 				}
 			} finally {
